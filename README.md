@@ -1,6 +1,6 @@
 # Claude Bar Studio
 
-[![Demo em vídeo](docs/assets/poster.png)](https://touchzada.github.io/claude-bar-studio/)
+[![Showreel em vídeo](docs/assets/showreel-poster.jpg)](https://touchzada.github.io/claude-bar-studio/)
 
 **[Página do projeto, com vídeo](https://touchzada.github.io/claude-bar-studio/)**
 
