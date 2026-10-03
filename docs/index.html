@@ -1,0 +1,209 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Claude Bar Studio — a barra do seu Claude Code, do seu jeito</title>
+<meta name="description" content="Faixa acima do prompt com limites 5h/7d, tokens e custo, animações, spinner em português, alertas e um painel visual pra configurar tudo. Open source.">
+<meta property="og:title" content="Claude Bar Studio">
+<meta property="og:description" content="A barra do seu Claude Code, do seu jeito: limites, tokens, custo, animações, spinner em português e alertas.">
+<meta property="og:type" content="website">
+<meta property="og:image" content="https://touchzada.github.io/claude-bar-studio/assets/poster.png">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://touchzada.github.io/claude-bar-studio/assets/poster.png">
+<style>
+  :root { color-scheme: dark; --bg: #0b0c10; --panel: #141720; --panel2: #1a1e29; --line: #272c3a; --text: #eceef5; --mut: #9097ab; --accent: #d97757; --pink: #ff8fab; --blue: #7b8ce8; --mono: ui-monospace, "Cascadia Code", Consolas, monospace; }
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body { margin: 0; background: var(--bg); color: var(--text); font: 17px/1.6 system-ui, "Segoe UI", sans-serif; overflow-x: hidden; }
+  a { color: inherit; }
+  .wrap { max-width: 1120px; margin: 0 auto; padding: 0 24px; }
+  .glow { position: fixed; z-index: -1; border-radius: 50%; filter: blur(130px); opacity: .28; pointer-events: none; }
+  .g1 { width: 620px; height: 620px; background: var(--accent); left: -200px; top: -160px; }
+  .g2 { width: 700px; height: 700px; background: #4c5fd5; right: -260px; top: 520px; }
+
+  nav { display: flex; align-items: center; gap: 18px; padding: 22px 0; }
+  nav .logo { font-weight: 850; font-size: 20px; letter-spacing: -.02em; }
+  nav .logo b, h1 b, .grad { background: linear-gradient(90deg, var(--accent), var(--pink) 50%, var(--blue)); -webkit-background-clip: text; background-clip: text; color: transparent; }
+  nav .sp { flex: 1; }
+  nav a.l { color: var(--mut); text-decoration: none; font-size: 15px; } nav a.l:hover { color: var(--text); }
+  .btn { display: inline-flex; align-items: center; gap: 8px; padding: 12px 22px; border-radius: 12px; font-weight: 700; text-decoration: none; border: 1px solid var(--line); background: var(--panel2); transition: .15s; }
+  .btn:hover { border-color: #46506b; transform: translateY(-1px); }
+  .btn.p { background: linear-gradient(90deg, var(--accent), #c9608f); border-color: transparent; color: #fff; }
+
+  .hero { text-align: center; padding: 54px 0 34px; }
+  .pill { display: inline-block; font-size: 14px; padding: 5px 14px; border-radius: 99px; border: 1px solid var(--line); background: var(--panel); color: var(--mut); margin-bottom: 22px; }
+  h1 { font-size: clamp(40px, 7vw, 76px); line-height: 1.04; letter-spacing: -.035em; margin: 0 0 18px; font-weight: 900; }
+  .lead { font-size: clamp(18px, 2.2vw, 23px); color: #b8bdcf; max-width: 760px; margin: 0 auto 30px; }
+  .cta { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; }
+  .video { margin: 44px auto 0; max-width: 1000px; border-radius: 18px; overflow: hidden; border: 1px solid var(--line); box-shadow: 0 30px 90px #000a, 0 0 0 6px #ffffff06; background: #000; }
+  .video video { display: block; width: 100%; height: auto; }
+  .note { color: var(--mut); font-size: 14px; margin-top: 12px; text-align: center; }
+
+  section { padding: 78px 0 10px; }
+  h2 { font-size: clamp(28px, 4vw, 42px); letter-spacing: -.025em; margin: 0 0 10px; line-height: 1.1; }
+  .sub { color: var(--mut); max-width: 700px; margin: 0 0 34px; }
+  .grid { display: grid; gap: 16px; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); }
+  .card { background: var(--panel); border: 1px solid var(--line); border-radius: 16px; padding: 22px 24px; }
+  .card .ic { font-size: 26px; margin-bottom: 8px; }
+  .card h3 { margin: 0 0 6px; font-size: 19px; }
+  .card p { margin: 0; color: var(--mut); font-size: 15.5px; }
+
+  .gal { display: grid; gap: 16px; grid-template-columns: repeat(auto-fill, minmax(460px, 1fr)); }
+  .gal figure { margin: 0; background: var(--panel); border: 1px solid var(--line); border-radius: 14px; overflow: hidden; cursor: zoom-in; transition: .15s; }
+  .gal figure:hover { border-color: #46506b; transform: translateY(-2px); }
+  .gal img { display: block; width: 100%; height: auto; }
+  .gal figcaption { padding: 10px 16px 12px; font-size: 14.5px; color: var(--mut); } .gal figcaption b { color: var(--text); }
+
+  .tabs { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 14px; }
+  .tabs button { background: var(--panel); border: 1px solid var(--line); border-radius: 99px; padding: 8px 18px; color: var(--mut); font: inherit; font-size: 15px; cursor: pointer; }
+  .tabs button.on { background: var(--text); color: #0b0c10; border-color: var(--text); font-weight: 700; }
+  .shot { border: 1px solid var(--line); border-radius: 16px; overflow: hidden; background: #0e0f13; max-height: 760px; overflow-y: auto; box-shadow: 0 20px 70px #0008; }
+  .shot img { display: block; width: 100%; height: auto; }
+  .shotcap { color: var(--mut); font-size: 15px; margin: 12px 2px 0; min-height: 3.2em; }
+
+  .steps { display: grid; gap: 16px; grid-template-columns: repeat(auto-fit, minmax(420px, 1fr)); }
+  .step { background: var(--panel); border: 1px solid var(--line); border-radius: 16px; padding: 22px 24px; }
+  .step .n { display: inline-grid; place-items: center; width: 34px; height: 34px; border-radius: 50%; background: linear-gradient(135deg, var(--accent), #b45a8a); font-weight: 800; margin-bottom: 10px; }
+  .step h3 { margin: 0 0 6px; }
+  .step p { color: var(--mut); margin: 0 0 12px; font-size: 15.5px; }
+  pre { margin: 0; background: #07080b; border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; font: 14px/1.5 var(--mono); overflow-x: auto; position: relative; color: #d6dae8; }
+  pre button { position: absolute; right: 8px; top: 8px; background: var(--panel2); border: 1px solid var(--line); border-radius: 7px; color: var(--mut); padding: 2px 10px; font-size: 12px; cursor: pointer; }
+  code { font-family: var(--mono); background: var(--panel2); padding: 1px 7px; border-radius: 6px; font-size: .88em; }
+
+  .honest { background: var(--panel); border: 1px solid var(--line); border-left: 4px solid var(--accent); border-radius: 12px; padding: 18px 22px; color: #c2c7d8; font-size: 15.5px; }
+  .honest ul { margin: 8px 0 0; padding-left: 20px; color: var(--mut); } .honest li { margin: 4px 0; }
+
+  footer { margin-top: 90px; border-top: 1px solid var(--line); padding: 32px 0 60px; color: var(--mut); font-size: 15px; display: flex; gap: 20px; flex-wrap: wrap; justify-content: space-between; }
+  #lb { position: fixed; inset: 0; background: #000d; display: none; place-items: center; z-index: 50; cursor: zoom-out; padding: 20px; }
+  #lb.on { display: grid; } #lb img { max-width: 100%; max-height: 100%; border-radius: 12px; }
+  @media (max-width: 640px) { nav a.l { display: none; } nav { flex-wrap: wrap; } .step, .card { padding: 18px; } }
+  .steps > *, .gal > *, .grid > * { min-width: 0; }
+  @media (max-width: 560px) { .gal, .steps { grid-template-columns: minmax(0, 1fr); } }
+  @media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } .btn { transition: none; } }
+</style>
+</head>
+<body>
+<div class="glow g1"></div><div class="glow g2"></div>
+<div class="wrap">
+  <nav>
+    <div class="logo">Claude <b>Bar Studio</b></div>
+    <div class="sp"></div>
+    <a class="l" href="#recursos">Recursos</a><a class="l" href="#galeria">Galeria</a><a class="l" href="#painel">Painel</a><a class="l" href="#instalar">Instalar</a>
+    <a class="btn" href="https://github.com/touchzada/claude-bar-studio">GitHub</a>
+  </nav>
+
+  <header class="hero">
+    <span class="pill">open source · feito com os mods do Claude Code</span>
+    <h1>A barra do seu <b>Claude Code</b>,<br>do seu jeito.</h1>
+    <p class="lead">Limites 5h/7d, tokens e custo direto acima do prompt. Animações, spinner em português, alertas e um painel visual pra ligar e desligar o que você quiser.</p>
+    <div class="cta">
+      <a class="btn p" href="#instalar">Como instalar</a>
+      <a class="btn" href="https://github.com/touchzada/claude-bar-studio">Ver código</a>
+    </div>
+    <div class="video">
+      <video autoplay muted loop playsinline controls preload="metadata" poster="assets/poster.png"><source src="assets/demo.mp4" type="video/mp4"></video>
+    </div>
+    <p class="note">Vídeo gravado a partir do preview do painel, com dados simulados.</p>
+  </header>
+
+  <section id="recursos">
+    <h2>O que ele faz</h2>
+    <p class="sub">Tudo configurável no painel, sem editar arquivo na mão. Salvou, o Claude muda em ~2 segundos.</p>
+    <div class="grid">
+      <div class="card"><div class="ic">📊</div><h3>Faixa com 18 itens</h3><p>Limite de 5h e 7d com barra e tempo até resetar, tokens de entrada/saída/cache, cache hit, custo (em US$ ou R$), contexto, modelo, relógio e mais.</p></div>
+      <div class="card"><div class="ic">🌈</div><h3>6 animações</h3><p>Arco-íris, respirar, brilho nas barras, pulsar no alerta, disco e letreiro rolando. Mais um símbolo que gira enquanto o Claude trabalha.</p></div>
+      <div class="card"><div class="ic">💬</div><h3>Spinner em português</h3><p>Troca o "Sautéing…" por suas palavras ("Cozinhando", "Pensando pra caralho"), que rodam sozinhas e podem ficar em arco-íris.</p></div>
+      <div class="card"><div class="ic">🎛️</div><h3>21 presets</h3><p>Minimalista, Dev focado, Monitor de grana, Matrix, Brasil, Streamer, Alerta vivo… um clique aplica itens, cores, animação e extras.</p></div>
+      <div class="card"><div class="ic">🔔</div><h3>Alertas</h3><p>Aviso na tela quando 5h, 7d ou contexto passam de um nível, quando o custo estoura ou quando um turno demora demais.</p></div>
+      <div class="card"><div class="ic">📖</div><h3>Explica tudo</h3><p>O painel tem um glossário: o que é cada item, de onde vem o número e o que significam token, cache e janela de 5h.</p></div>
+    </div>
+  </section>
+
+  <section id="galeria">
+    <h2>Alguns visuais</h2>
+    <p class="sub">Recortes do preview do painel (dados simulados). Clica pra ampliar.</p>
+    <div class="gal" id="gal">
+      <figure><img loading="lazy" src="assets/preview-igual-da-imagem.png" alt="Preset Igual da imagem"><figcaption><b>Igual da imagem</b> · o visual de partida</figcaption></figure>
+      <figure><img loading="lazy" src="assets/preview-arco-iris.png" alt="Preset Arco-íris"><figcaption><b>Arco-íris</b> · cores girando, spinner em português</figcaption></figure>
+      <figure><img loading="lazy" src="assets/preview-termometro.png" alt="Preset Termômetro"><figcaption><b>Termômetro</b> · barras com gradiente e brilho passeando</figcaption></figure>
+      <figure><img loading="lazy" src="assets/preview-alerta-vivo.png" alt="Preset Alerta vivo"><figcaption><b>Alerta vivo</b> · o item crítico pisca</figcaption></figure>
+      <figure><img loading="lazy" src="assets/preview-letreiro.png" alt="Preset Letreiro"><figcaption><b>Letreiro</b> · a faixa vira um texto que rola</figcaption></figure>
+      <figure><img loading="lazy" src="assets/preview-matrix.png" alt="Preset Matrix"><figcaption><b>Matrix</b> · verde fosforescente e barras ASCII</figcaption></figure>
+      <figure><img loading="lazy" src="assets/preview-brasil.png" alt="Preset Brasil"><figcaption><b>Brasil</b> · em reais, fuso de Brasília</figcaption></figure>
+      <figure><img loading="lazy" src="assets/preview-disco.png" alt="Preset Disco"><figcaption><b>Disco</b> · neon pulando entre as cores</figcaption></figure>
+      <figure><img loading="lazy" src="assets/preview-hacker.png" alt="Preset Hacker"><figcaption><b>Hacker</b> · retrô, texto simples</figcaption></figure>
+    </div>
+  </section>
+
+  <section id="painel">
+    <h2>O painel</h2>
+    <p class="sub">Roda local no seu computador (Node, sem dependências). Liga itens, arrasta pra reordenar, escolhe cores e vê o resultado ao vivo.</p>
+    <div class="tabs" id="tabs">
+      <button data-i="0" class="on">Itens</button><button data-i="1">Estilo</button><button data-i="2">Extras</button><button data-i="3">Presets</button><button data-i="4">Glossário</button>
+    </div>
+    <div class="shot" id="shot"><img id="shotimg" src="assets/painel-itens.png" alt="Painel, aba Itens"></div>
+    <p class="shotcap" id="shotcap"></p>
+  </section>
+
+  <section id="instalar">
+    <h2>Instalar</h2>
+    <p class="sub">Precisa do Claude Code com suporte a mods (acesso antecipado; testado na 2.1.286) e Node 18+ pro painel.</p>
+    <div class="steps">
+      <div class="step"><div class="n">1</div><h3>Pega o código</h3><p>Clona o repositório.</p>
+        <pre><button>copiar</button>git clone https://github.com/touchzada/claude-bar-studio.git
+cd claude-bar-studio</pre></div>
+      <div class="step"><div class="n">2</div><h3>Carrega o mod</h3><p>Abre o Claude Code apontando pra pasta do mod.</p>
+        <pre><button>copiar</button>claude --plugin-dir ./mod/usage-band</pre></div>
+      <div class="step"><div class="n">3</div><h3>Abre o painel</h3><p>Em outro terminal. Abre sozinho em <code>127.0.0.1:4747</code>.</p>
+        <pre><button>copiar</button>node panel/server.js</pre></div>
+      <div class="step"><div class="n">4</div><h3>Mexe e vê mudar</h3><p>Escolhe um preset ou liga item por item. O painel salva <code>~/.claude/usage-band.json</code> e o mod redesenha em ~2s.</p></div>
+    </div>
+  </section>
+
+  <section>
+    <h2>Sem enrolação</h2>
+    <div class="honest">Coisas que vale saber antes:
+      <ul>
+        <li>As barras de 5h e 7d só existem em conta com <b>assinatura</b>. Sem ela esses itens somem sozinhos.</li>
+        <li>O custo em $ é a estimativa do Claude Code (igual ao <code>/cost</code>). Em assinatura não é cobrança extra.</li>
+        <li>As animações redesenham a faixa algumas vezes por segundo. Se o terminal piscar demais, use a velocidade lenta ou desligue.</li>
+        <li>A API de mods ainda está em acesso antecipado e pode mudar entre versões.</li>
+        <li>Os prints e o vídeo desta página são do <b>preview do painel</b>, com dados de mentirinha.</li>
+      </ul>
+    </div>
+  </section>
+
+  <footer>
+    <div>Claude <b class="grad">Bar Studio</b> · feito pra deixar o terminal com a sua cara.</div>
+    <div><a href="https://github.com/touchzada/claude-bar-studio">github.com/touchzada/claude-bar-studio</a></div>
+  </footer>
+</div>
+<div id="lb"><img alt=""></div>
+
+<script>
+const SHOTS = [
+  ['painel-itens.png', 'Itens: liga e desliga, arrasta pra reordenar, cor própria por item e o botão "?" que explica cada um.'],
+  ['painel-estilo.png', 'Estilo: pílulas, texto, colchetes ou letreiro; 10 paletas; 5 tipos de barra; alertas de cor; animações; R$ com cotação; fuso.'],
+  ['painel-extras.png', 'Extras: spinner com suas palavras, linha de fim de turno, dica sob o prompt e alertas. Tem também o mapa do que mais dá pra personalizar.'],
+  ['painel-presets.png', 'Presets: cada card mostra o resultado e os que se mexem têm a marca "ao vivo".'],
+  ['painel-glossario.png', 'Glossário: o que é cada item, de onde vem o número e conceitos como token, cache e janela de 5h.']
+]
+const img = document.getElementById('shotimg'), cap = document.getElementById('shotcap'), shot = document.getElementById('shot')
+function show(i) { img.src = 'assets/' + SHOTS[i][0]; cap.textContent = SHOTS[i][1]; img.alt = 'Painel: ' + SHOTS[i][0]; shot.scrollTop = 0; document.querySelectorAll('#tabs button').forEach(b => b.classList.toggle('on', Number(b.dataset.i) === i)) }
+document.getElementById('tabs').addEventListener('click', e => { const b = e.target.closest('button'); if (b) show(Number(b.dataset.i)) })
+show(0)
+
+const lb = document.getElementById('lb')
+document.getElementById('gal').addEventListener('click', e => { const f = e.target.closest('figure'); if (f) { lb.querySelector('img').src = f.querySelector('img').src; lb.classList.add('on') } })
+lb.addEventListener('click', () => lb.classList.remove('on'))
+document.addEventListener('keydown', e => { if (e.key === 'Escape') lb.classList.remove('on') })
+
+document.querySelectorAll('pre button').forEach(b => b.addEventListener('click', async () => {
+  const text = b.parentElement.textContent.replace(/^copiar/, '').trim()
+  try { await navigator.clipboard.writeText(text); b.textContent = 'copiado!' } catch { b.textContent = 'ctrl+c' }
+  setTimeout(() => (b.textContent = 'copiar'), 1500)
+}))
+</script>
+</body>
+</html>

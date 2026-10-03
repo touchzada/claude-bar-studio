@@ -1,0 +1,6 @@
+{
+  "name": "usage-band",
+  "version": "0.1.0",
+  "description": "Faixa acima do prompt com limite 5h/7d, tokens da sessão e custo.",
+  "types": "./types/index.d.ts"
+}

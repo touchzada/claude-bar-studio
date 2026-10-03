@@ -1,0 +1,1163 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Claude Bar Studio</title>
+<style>
+  :root {
+    --bg: #0e0f13; --panel: #16181f; --panel2: #1d2029; --line: #2a2e3a; --text: #e8eaf0; --mut: #8b91a3;
+    --accent: #d97757; --accent2: #7b8ce8; --ok: #5fb38f; --warn: #f5a623; --bad: #e5484d;
+    --mono: ui-monospace, "Cascadia Code", "JetBrains Mono", Consolas, monospace;
+    --radius: 12px;
+  }
+  * { box-sizing: border-box; }
+  html { color-scheme: dark; }
+  body { margin: 0; background: var(--bg); color: var(--text); font: 14px/1.5 system-ui, "Segoe UI", sans-serif; }
+  button, input, select, textarea { font: inherit; color: inherit; }
+  button { cursor: pointer; }
+  .wrap { max-width: 1100px; margin: 0 auto; padding: 0 20px 80px; }
+
+  header { display: flex; align-items: center; gap: 14px; padding: 18px 0 12px; flex-wrap: wrap; }
+  .logo { font-weight: 800; font-size: 20px; letter-spacing: -.02em; }
+  .logo b { background: linear-gradient(90deg, var(--accent), var(--accent2)); -webkit-background-clip: text; background-clip: text; color: transparent; }
+  .spacer { flex: 1; }
+  .chip { display: inline-flex; align-items: center; gap: 7px; padding: 4px 11px; border-radius: 99px; background: var(--panel2); border: 1px solid var(--line); font-size: 12.5px; color: var(--mut); }
+  .chip i { width: 8px; height: 8px; border-radius: 50%; background: var(--mut); }
+  .chip.ok i { background: var(--ok); box-shadow: 0 0 8px var(--ok); } .chip.ok { color: var(--text); }
+  .chip.off i { background: var(--bad); } .chip.off { color: var(--text); }
+  .chip.dirty i { background: var(--warn); } .chip.dirty { color: var(--text); }
+  .btn { background: var(--panel2); border: 1px solid var(--line); border-radius: 9px; padding: 7px 14px; transition: .12s; }
+  .btn:hover { border-color: #444a5c; background: #232734; }
+  .btn.primary { background: var(--accent); border-color: var(--accent); color: #1a0f0a; font-weight: 700; }
+  .btn.primary:hover { filter: brightness(1.1); }
+  .btn.small { padding: 3px 10px; font-size: 12.5px; }
+  .btn:disabled { opacity: .45; cursor: not-allowed; }
+
+  /* preview */
+  .stage { position: sticky; top: 0; z-index: 20; background: linear-gradient(var(--bg) 88%, transparent); padding: 6px 0 14px; }
+  .term { background: #0a0b0e; border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden; box-shadow: 0 10px 40px #0008; }
+  .term-top { display: flex; align-items: center; gap: 6px; padding: 8px 12px; background: #121419; border-bottom: 1px solid var(--line); font-size: 12px; color: var(--mut); }
+  .term-top i { width: 10px; height: 10px; border-radius: 50%; background: #3a3f4d; }
+  .term-top span { margin-left: 8px; }
+  .term-body { padding: 14px 14px 12px; font-family: var(--mono); font-size: 13.5px; overflow-x: auto; }
+  .term-line { color: #6c7286; margin-bottom: 6px; white-space: pre; }
+  .tline { min-height: 1.5em; margin-bottom: 8px; white-space: pre; display: flex; }
+  .screen { margin: 0 auto 0 0; }
+  .band { display: flex; flex-wrap: wrap; padding: 0 1ch; min-height: 1.5em; row-gap: 2px; }
+  .band-off { color: #5a6075; padding: 0 1ch; font-style: italic; }
+  .cell { display: flex; white-space: pre; }
+  .cell > span, .tline > span { white-space: pre; }
+  .promptbox { margin-top: 8px; border: 1px solid #3a3f4d; border-radius: 8px; padding: 6px 12px; color: #6c7286; }
+  .meta { display: flex; color: #6c7286; padding: 4px 4px 0; font-size: 12px; gap: 1ch; white-space: pre; overflow: hidden; }
+  .meta .grow { flex: 1; overflow: hidden; text-overflow: ellipsis; }
+  .sim { display: flex; flex-wrap: wrap; gap: 8px 22px; padding: 10px 4px 0; align-items: center; font-size: 12.5px; color: var(--mut); }
+  .sim label { display: flex; align-items: center; gap: 8px; }
+  .sim input[type=range] { width: 110px; accent-color: var(--accent); }
+  .sim b { color: var(--text); font-weight: 600; min-width: 3.4ch; display: inline-block; font-family: var(--mono); }
+  .sim .tag { text-transform: uppercase; font-size: 11px; letter-spacing: .08em; color: #5d6377; }
+
+  /* tabs */
+  nav.tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--line); margin: 6px 0 20px; overflow-x: auto; }
+  nav.tabs button { background: none; border: 0; padding: 10px 16px; color: var(--mut); border-bottom: 2px solid transparent; white-space: nowrap; font-weight: 600; }
+  nav.tabs button:hover { color: var(--text); }
+  nav.tabs button.on { color: var(--text); border-color: var(--accent); }
+  .tab { display: none; } .tab.on { display: block; }
+  .lead { color: var(--mut); margin: 0 0 16px; max-width: 70ch; }
+
+  /* items list */
+  .filters { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 12px; align-items: center; }
+  .pillbtn { background: var(--panel); border: 1px solid var(--line); border-radius: 99px; padding: 4px 13px; font-size: 13px; color: var(--mut); }
+  .pillbtn.on { background: var(--text); color: #111; border-color: var(--text); font-weight: 600; }
+  ul.items { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+  .item { display: grid; grid-template-columns: 22px auto 1fr auto auto; gap: 12px; align-items: center; background: var(--panel); border: 1px solid var(--line); border-radius: 11px; padding: 10px 14px; transition: border-color .12s, opacity .12s; }
+  .item.off { opacity: .55; }
+  .item.dragging { opacity: .35; }
+  .item.over { border-color: var(--accent); }
+  .grip { cursor: grab; color: #565d72; font-size: 16px; text-align: center; user-select: none; }
+  .item .nm { font-weight: 650; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .item .ds { color: var(--mut); font-size: 13px; }
+  .badge { font-size: 10.5px; text-transform: uppercase; letter-spacing: .06em; padding: 1px 8px; border-radius: 99px; background: var(--panel2); color: var(--mut); border: 1px solid var(--line); font-weight: 600; }
+  .badge.g-Limites { color: #5fb38f; } .badge.g-Tokens { color: #7b8ce8; } .badge.g-Custo { color: #d9a93a; } .badge.g-Contexto { color: #4fb3c4; } .badge.g-Sessão { color: #d97fb0; }
+  .badge.ok { color: var(--ok); } .badge.mod { color: var(--accent2); } .badge.cc { color: var(--warn); }
+  .mini { display: flex; gap: 4px; align-items: center; }
+  .mini button { background: none; border: 1px solid var(--line); border-radius: 7px; width: 28px; height: 28px; color: var(--mut); }
+  .mini button:hover { color: var(--text); border-color: #444a5c; }
+  .mini button.clr { width: auto; height: auto; border: 0; }
+  .swatch { width: 28px; height: 28px; border-radius: 7px; border: 1px solid var(--line); padding: 0; background: none; cursor: pointer; }
+  .clr { font-size: 11px; color: var(--mut); background: none; border: 0; text-decoration: underline; padding: 0 2px; }
+
+  .switch { position: relative; width: 40px; height: 22px; flex: none; }
+  .switch input { position: absolute; inset: 0; opacity: 0; margin: 0; cursor: pointer; z-index: 2; }
+  .switch s { position: absolute; inset: 0; background: #2b2f3c; border-radius: 99px; transition: .15s; }
+  .switch s::after { content: ""; position: absolute; top: 3px; left: 3px; width: 16px; height: 16px; border-radius: 50%; background: #aab; transition: .15s; }
+  .switch input:checked + s { background: var(--accent); }
+  .switch input:checked + s::after { left: 21px; background: #fff; }
+  .switch input:focus-visible + s { outline: 2px solid var(--accent2); outline-offset: 2px; }
+
+  /* settings */
+  .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(420px, 1fr)); gap: 14px; align-items: start; }
+  .card { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); padding: 16px 18px; }
+  .card.wide { grid-column: 1 / -1; }
+  .card h3 { margin: 0 0 4px; font-size: 15px; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  .card > p { margin: 0 0 12px; color: var(--mut); font-size: 13px; }
+  .field { padding: 11px 0; border-top: 1px solid var(--line); display: grid; gap: 8px; }
+  .field:first-of-type { border-top: 0; }
+  .field.hidden { display: none; }
+  .field .row { display: flex; align-items: center; justify-content: space-between; gap: 14px; }
+  .field .row.col { flex-direction: column; align-items: stretch; }
+  .field .lbl { font-weight: 600; }
+  .field .hint { color: var(--mut); font-size: 12.5px; margin-top: -2px; }
+  .seg { display: inline-flex; background: var(--panel2); border: 1px solid var(--line); border-radius: 9px; padding: 2px; flex-wrap: wrap; }
+  .seg button { background: none; border: 0; padding: 5px 12px; border-radius: 7px; color: var(--mut); font-size: 13px; }
+  .seg button.on { background: var(--text); color: #111; font-weight: 650; }
+  input[type=range] { accent-color: var(--accent); width: 180px; }
+  input[type=text], input[type=number], textarea, select { background: var(--panel2); border: 1px solid var(--line); border-radius: 8px; padding: 6px 10px; }
+  input[type=text], input[type=number] { width: 130px; }
+  textarea.list { width: 100%; min-height: 120px; font-family: var(--mono); font-size: 12.5px; resize: vertical; }
+  input[type=color] { width: 40px; height: 30px; border: 1px solid var(--line); border-radius: 7px; background: none; padding: 2px; }
+  .val { font-family: var(--mono); font-size: 12.5px; color: var(--text); min-width: 4ch; text-align: right; }
+  .pals { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 8px; }
+  .pal { background: var(--panel2); border: 2px solid var(--line); border-radius: 10px; padding: 8px; text-align: left; }
+  .pal.on { border-color: var(--accent); }
+  .pal span { display: block; font-size: 12.5px; font-weight: 600; margin-bottom: 6px; }
+  .pal div { display: flex; gap: 3px; } .pal i { flex: 1; height: 12px; border-radius: 3px; }
+  .bars { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px; }
+  .barpick { background: var(--panel2); border: 2px solid var(--line); border-radius: 10px; padding: 8px 10px; text-align: left; font-family: var(--mono); font-size: 13px; color: var(--text); }
+  .barpick.on { border-color: var(--accent); } .barpick small { display: block; font-family: system-ui; color: var(--mut); font-size: 11.5px; }
+  .chips { display: flex; flex-wrap: wrap; gap: 6px; }
+  .chips button { background: var(--panel2); border: 1px solid var(--line); border-radius: 7px; padding: 2px 9px; font-family: var(--mono); font-size: 12px; color: var(--mut); }
+  .chips button:hover { color: var(--text); border-color: #444a5c; }
+  .legend { display: grid; gap: 3px; font-size: 12.5px; color: var(--mut); }
+  .legend b { color: var(--text); font-weight: 600; }
+
+  /* presets */
+  .presets { display: grid; grid-template-columns: repeat(auto-fill, minmax(360px, 1fr)); gap: 14px; }
+  .preset { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); padding: 14px 16px; display: grid; gap: 10px; align-content: start; }
+  .preset h3 { margin: 0; font-size: 15px; display: flex; gap: 8px; align-items: center; } .preset p { margin: 0; color: var(--mut); font-size: 13px; }
+  .preset .demo { background: #0a0b0e; border: 1px solid var(--line); border-radius: 9px; padding: 8px 4px; font-family: var(--mono); font-size: 12px; overflow: hidden; min-height: 38px; }
+  .tagrow { display: flex; gap: 5px; flex-wrap: wrap; }
+  .tg { font-size: 10.5px; padding: 1px 7px; border-radius: 99px; border: 1px solid var(--line); color: var(--mut); }
+  .tg.live { color: var(--warn); border-color: #5a4524; }
+
+  /* glossary */
+  .gl-tools { display: flex; gap: 10px; margin-bottom: 14px; }
+  .gl-tools input { flex: 1; width: auto; }
+  .gl { display: grid; gap: 12px; }
+  .gl h2 { margin: 18px 0 2px; font-size: 13px; text-transform: uppercase; letter-spacing: .09em; color: var(--mut); }
+  .entry { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); padding: 14px 18px; display: grid; gap: 8px; scroll-margin-top: 260px; }
+  .entry.flash { animation: flash 1.6s ease; }
+  @keyframes flash { 0%, 40% { border-color: var(--accent); box-shadow: 0 0 0 3px #d9775740; } 100% { border-color: var(--line); box-shadow: none; } }
+  .entry h3 { margin: 0; font-size: 15.5px; display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+  .entry .ex { font-family: var(--mono); background: #0a0b0e; border: 1px solid var(--line); border-radius: 8px; padding: 6px 10px; overflow-x: auto; white-space: pre; font-size: 12.5px; }
+  .entry dl { margin: 0; display: grid; grid-template-columns: 90px 1fr; gap: 4px 12px; font-size: 13.5px; }
+  .entry dt { color: var(--mut); } .entry dd { margin: 0; }
+
+  /* map */
+  .map { display: grid; gap: 14px; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); }
+  .map .col { background: var(--panel2); border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; }
+  .map h4 { margin: 0 0 8px; font-size: 13px; display: flex; gap: 8px; align-items: center; }
+  .map ul { margin: 0; padding-left: 18px; color: var(--mut); font-size: 13px; display: grid; gap: 4px; }
+  .map li b { color: var(--text); font-weight: 600; }
+
+  /* advanced */
+  textarea.json { width: 100%; min-height: 360px; font-family: var(--mono); font-size: 12.5px; resize: vertical; }
+  .row-actions { display: flex; flex-wrap: wrap; gap: 8px; margin: 10px 0; align-items: center; }
+  .note { color: var(--mut); font-size: 13px; }
+  .banner { background: #3a2420; border: 1px solid #6b3a2f; color: #ffcfc2; border-radius: 10px; padding: 10px 14px; margin-bottom: 14px; display: none; }
+  .banner.show { display: block; }
+  code { font-family: var(--mono); background: var(--panel2); padding: 1px 6px; border-radius: 5px; font-size: 12.5px; }
+  .toast { position: fixed; bottom: 20px; left: 50%; transform: translate(-50%, 20px); background: var(--text); color: #111; padding: 9px 18px; border-radius: 99px; font-weight: 600; opacity: 0; transition: .2s; pointer-events: none; z-index: 50; }
+  .toast.show { opacity: 1; transform: translate(-50%, 0); }
+  body.demo .stage { position: static; background: none; }
+  @media (max-height: 760px) { .stage { position: static; background: none; } .entry { scroll-margin-top: 20px; } }
+  @media (max-width: 720px) {
+    .cards { grid-template-columns: 1fr; } .item { grid-template-columns: 22px auto 1fr; } .item .mini, .item .colwrap { grid-column: 3; }
+    .presets { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="logo">Claude <b>Bar Studio</b></div>
+    <span class="chip" id="status"><i></i><span>conectando…</span></span>
+    <div class="spacer"></div>
+    <label class="chip" style="cursor:pointer"><span>Aplicar ao vivo</span>
+      <span class="switch"><input type="checkbox" id="autosave" checked><s></s></span></label>
+    <button class="btn primary" id="saveBtn">Salvar agora</button>
+  </header>
+
+  <div class="banner" id="offlineBanner">
+    Não achei o servidor do painel. Abre pelo <code>start.bat</code> (pasta <code>.claude\usage-band-panel</code>) ou roda <code>node server.js</code> lá. Sem ele dá pra mexer e ver o preview, mas não salva. Dá pra copiar o JSON na aba Avançado.
+  </div>
+
+  <div class="stage">
+    <div class="term">
+      <div class="term-top"><i></i><i></i><i></i><span>preview ao vivo (os dados são de mentirinha)</span></div>
+      <div class="term-body">
+        <div class="term-line">● Pronto. O que a gente vai quebrar hoje?</div>
+        <div class="screen" id="screen">
+          <div id="activity" class="tline"></div>
+          <div id="band" class="band"></div>
+          <div class="promptbox">Type / for commands</div>
+          <div class="meta"><span>+  Auto</span><span class="grow" id="hintTail"></span><span>Opus 5.5  Medium</span></div>
+        </div>
+      </div>
+    </div>
+    <div class="sim" id="sim"></div>
+  </div>
+
+  <nav class="tabs" id="tabs">
+    <button data-tab="items" class="on">Itens</button>
+    <button data-tab="style">Estilo</button>
+    <button data-tab="extras">Extras</button>
+    <button data-tab="presets">Presets</button>
+    <button data-tab="gloss">O que é cada coisa</button>
+    <button data-tab="adv">Avançado</button>
+  </nav>
+
+  <section class="tab on" id="tab-items">
+    <p class="lead">Liga e desliga o que aparece, arrasta pela alça (⠿) ou usa as setas pra mudar a ordem. A bolinha de cor muda a cor só daquele item. Clica no <b>?</b> pra ver o que o item significa.</p>
+    <div class="filters" id="filters"></div>
+    <ul class="items" id="items"></ul>
+  </section>
+
+  <section class="tab" id="tab-style"><div class="cards" id="styleCards"></div></section>
+  <section class="tab" id="tab-extras"><div class="cards" id="extraCards"></div></section>
+
+  <section class="tab" id="tab-presets">
+    <p class="lead">Atalhos prontos. Clicar aplica o preset inteiro (itens, ordem, estilo, animação e extras). Os marcados com <b>ao vivo</b> se mexem. Dá pra ajustar depois nas outras abas.</p>
+    <div class="presets" id="presetList"></div>
+  </section>
+
+  <section class="tab" id="tab-gloss">
+    <div class="gl-tools"><input type="text" id="glSearch" placeholder="Buscar: cache, limite, custo, animação, spinner…"></div>
+    <div class="gl" id="gloss"></div>
+  </section>
+
+  <section class="tab" id="tab-adv">
+    <div class="cards">
+      <div class="card">
+        <h3>Config em JSON</h3>
+        <p>É exatamente esse texto que o mod lê. Edita à vontade e aperta Aplicar.</p>
+        <textarea class="json" id="json" spellcheck="false"></textarea>
+        <div class="row-actions">
+          <button class="btn" id="jsonApply">Aplicar JSON</button>
+          <button class="btn" id="jsonCopy">Copiar</button>
+          <button class="btn" id="jsonDownload">Baixar</button>
+          <label class="btn" style="margin:0">Importar arquivo<input type="file" id="jsonFile" accept=".json,application/json" hidden></label>
+          <span class="note" id="jsonMsg"></span>
+        </div>
+      </div>
+      <div class="card">
+        <h3>Como isso funciona</h3>
+        <p>Três peças:</p>
+        <ol style="margin:0 0 12px; padding-left: 20px; color: var(--mut); font-size: 13.5px">
+          <li style="margin-bottom:6px">Este painel salva <code id="cfgPath">~/.claude/usage-band.json</code>.</li>
+          <li style="margin-bottom:6px">O mod <code>usage-band</code> dentro do Claude Code confere o arquivo a cada ~2s e redesenha a barra, o spinner e o resto.</li>
+          <li>Não precisa reiniciar nada. Salvou, mudou.</li>
+        </ol>
+        <div class="field"><div class="row"><span class="lbl">Restaurar tudo</span><button class="btn small" id="resetAll">Voltar ao padrão</button></div>
+          <div class="hint">Volta pro visual da imagem original (5h, 7d, tokens e custo), sem animação e sem extras.</div></div>
+        <div class="field"><div class="row"><span class="lbl">Não muda nada?</span></div>
+          <div class="hint">Confere se o mod tá ativo na sessão (hot reload ligado), se o chip lá em cima está verde, e se você está numa conta de assinatura (sem ela, as barras 5h/7d não existem).</div></div>
+      </div>
+    </div>
+  </section>
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+'use strict'
+/* ====================================================================
+   Catálogo: tudo que a barra sabe mostrar, e o texto do glossário.
+   ==================================================================== */
+const WIDGETS = [
+  { id: 'limit5h', group: 'Limites', name: 'Limite de 5 horas', short: 'Quanto da janela de 5h você já gastou, com barra e tempo até resetar.', slot: 'green', icons: ['5h', '5h', '⏱5h'],
+    what: 'Sua assinatura funciona em janelas de tempo. Esta é a de 5 horas: conforme você conversa, a barra enche. Chegou em 100% e o Claude te segura até a janela resetar.',
+    source: 'Rate limit que a API devolve em cada resposta. Só existe em conta com assinatura (Pro/Max).', example: '5h ████░░░░ 20% ⟳ 2h 40m',
+    tip: 'O "⟳ 2h 40m" é o tempo até a janela zerar. Dá pra trocar por horário (ex.: 17:40) em Estilo > Barras.' },
+  { id: 'limit7d', group: 'Limites', name: 'Limite de 7 dias', short: 'O teto semanal. Mesma ideia, janela maior.', slot: 'purple', icons: ['7d', '7d', '📅7d'],
+    what: 'Além da janela de 5h existe um teto semanal. Se você usa pesado todo dia, esta é a barra que mais importa.',
+    source: 'Mesmo rate limit da API (campo seven_day).', example: '7d █████░░░ 58% ⟳ 1d 7h',
+    tip: 'Se a semana tá acabando e a barra está baixa, pode gastar sem medo.' },
+  { id: 'spend', group: 'Limites', name: 'Limite de gasto (gateway)', short: 'Teto de gasto em dinheiro, só pra quem usa gateway da Claude com limite.', slot: 'amber', icons: ['¤', 'gasto', '💳'],
+    what: 'Algumas organizações usam um gateway com limite de gasto em vez das janelas de tempo. Se não for o seu caso, este item some sozinho.',
+    source: 'Rate limit tipo spend_limit. Se a API não mandar, não aparece.', example: '¤ ████░░░░ 35%',
+    tip: 'Pode deixar ligado sem medo: sem dados, ele nem desenha.' },
+  { id: 'inTok', group: 'Tokens', name: 'Tokens de entrada (↑)', short: 'Tokens novos que você mandou pro modelo (fora do cache).', slot: 'red', icons: ['↑', 'in', '📤'],
+    what: 'Tudo que o Claude leu e que não veio do cache: seu prompt, arquivos que ele abriu, resultado de comandos. Costuma ser pequeno porque o resto vira cache.',
+    source: 'Uso real reportado pela API, somado a cada turno desta sessão.', example: '↑ 15.6k',
+    tip: 'Muda pra "só último turno" em Estilo > Números se quiser ver o peso de uma mensagem só.' },
+  { id: 'outTok', group: 'Tokens', name: 'Tokens de saída (↓)', short: 'Tokens que o Claude escreveu: texto, código, chamadas de ferramenta.', slot: 'green', icons: ['↓', 'out', '📥'],
+    what: 'O que o modelo gerou. É a parte mais cara por token e a que mais demora, porque ele escreve palavra por palavra.',
+    source: 'Uso real reportado pela API, somado a cada turno.', example: '↓ 3.0k',
+    tip: 'Se esse número dispara, o Claude tá escrevendo muita coisa. Pedir respostas curtas ajuda.' },
+  { id: 'cacheTok', group: 'Tokens', name: 'Tokens de cache (≣)', short: 'Tokens lidos ou gravados no cache de prompt. Número grande é normal.', slot: 'blue', icons: ['≣', 'cache', '🧠'],
+    what: 'Pra não reenviar a conversa inteira toda vez, a API guarda um cache. Ler do cache é muito mais barato que mandar de novo, por isso o número fica gigante (centenas de milhares) e não assusta.',
+    source: 'cache_read + cache_creation reportados pela API.', example: '≣ 954.2k',
+    tip: 'Cache alto não é problema. O que importa é a taxa de acerto (item "Cache hit").' },
+  { id: 'cacheHit', group: 'Tokens', name: 'Cache hit (taxa de acerto)', short: '% do input que veio do cache. Perto de 100% = sessão eficiente.', slot: 'teal', icons: ['⚡', 'hit', '🎯'],
+    what: 'Cache lido ÷ (input novo + todo o cache). Quanto mais alto, mais barato e rápido o Claude está respondendo, porque quase tudo já estava guardado.',
+    source: 'Calculado a partir dos tokens da API.', example: '⚡ 94%',
+    tip: 'Cai quando você muda de assunto de repente ou o cache expira por inatividade.' },
+  { id: 'totalTok', group: 'Tokens', name: 'Total de tokens (Σ)', short: 'Input + output + cache, tudo somado.', slot: 'gray', icons: ['Σ', 'total', '🔢'],
+    what: 'A soma geral. Bom pra ter uma noção do "tamanho" da sessão sem olhar três números.',
+    source: 'Calculado.', example: 'Σ 972.8k', tip: 'Como o cache pesa muito, esse número sempre é dominado por ele.' },
+  { id: 'cost', group: 'Custo', name: 'Custo da sessão', short: 'Quanto a sessão custou, igual ao /cost. Pode ser em R$.', slot: 'amber', icons: ['', 'custo', '💰'],
+    what: 'Valor estimado da sessão em dólar (ou reais, se você configurar a cotação). Em plano de assinatura não é cobrança extra: é o "equivalente em API", útil pra comparar sessões.',
+    source: 'Ledger de custo do próprio Claude Code (o mesmo do /cost).', example: '$4.32  ou  R$ 23.76',
+    tip: 'Em Estilo > Números dá pra trocar pra BRL e ajustar a cotação.' },
+  { id: 'costPerTurn', group: 'Custo', name: 'Custo por mensagem', short: 'Custo médio por mensagem sua (custo ÷ mensagens).', slot: 'amber', icons: ['⌀', 'por msg', '🧾'],
+    what: 'Média do que cada pergunta sua tá custando. Mostra rápido se a sessão tá "cara" ou barata.',
+    source: 'Custo da sessão dividido pelo número de mensagens suas.', example: '⌀ $0.36', tip: 'Sessões longas com muito contexto encarecem cada mensagem.' },
+  { id: 'burn', group: 'Custo', name: 'Ritmo de gasto ($/h)', short: 'Quanto você gasta por hora no ritmo atual.', slot: 'red', icons: ['↗', 'ritmo', '🔥'],
+    what: 'Custo da sessão dividido pelas horas de sessão. Serve de termômetro: "se eu continuar assim, vou torrar quanto?".',
+    source: 'Calculado: custo ÷ tempo de sessão. Só aparece depois de 1 minuto.', example: '↗ $3.45/h', tip: 'Fica instável nos primeiros minutos, é normal.' },
+  { id: 'ctx', group: 'Contexto', name: 'Contexto usado', short: 'Quanto da memória de curto prazo do modelo já está cheia.', slot: 'blue', icons: ['◐', 'ctx', '🧩'],
+    what: 'O modelo só enxerga uma quantidade limitada de texto por vez (a janela de contexto). Perto de 100% o Claude compacta a conversa automaticamente e perde detalhes. Fica amarelo/vermelho pra te avisar.',
+    source: 'Tamanho da última resposta contra a janela do modelo.', example: '◐ ████░░░░ 42%  (84k/200k)',
+    tip: 'Ligue "Mostrar tokens do contexto" em Estilo > Barras pra ver 84k/200k.' },
+  { id: 'model', group: 'Sessão', name: 'Modelo', short: 'Qual modelo está respondendo agora (Opus, Sonnet…).', slot: 'purple', icons: ['◆', 'modelo', '🤖'],
+    what: 'O modelo da sessão, em nome curto. Útil se você troca de modelo no meio da conversa e quer ter certeza de qual está ativo.', source: 'O mesmo que o /model mostra.', example: '◆ Opus 5.5', tip: 'Atualiza a cada turno.' },
+  { id: 'turns', group: 'Sessão', name: 'Mensagens enviadas', short: 'Quantas mensagens suas já foram nesta sessão.', slot: 'gray', icons: ['#', 'msgs', '💬'],
+    what: 'Contador de prompts seus (não conta as respostas do Claude).', source: 'Transcrição da sessão.', example: '# 12', tip: 'Zera quando você dá /clear.' },
+  { id: 'duration', group: 'Sessão', name: 'Tempo de sessão', short: 'Há quanto tempo essa sessão está rolando.', slot: 'teal', icons: ['◷', 'sessão', '⏳'],
+    what: 'Tempo desde que a sessão começou (ou desde o /clear). Bom pra lembrar de levantar pra beber água.', source: 'Horário de início da sessão.', example: '◷ 1h 15m', tip: 'Atualiza a cada 30 segundos.' },
+  { id: 'lastTurn', group: 'Sessão', name: 'Último turno', short: 'Quanto tempo o último turno levou e quantas ferramentas usou.', slot: 'pink', icons: ['↻', 'último', '⚙'],
+    what: 'Duração da última resposta do Claude e quantas ferramentas ele chamou (ler arquivo, rodar comando…). Mostra o quanto ele "trabalhou" naquela vez.',
+    source: 'Medido pelo mod entre o envio do prompt e o fim do turno.', example: '↻ 12s · 4 tools', tip: 'Só aparece depois do primeiro turno.' },
+  { id: 'clock', group: 'Sessão', name: 'Relógio', short: 'Hora atual, pra você não perder a noção do tempo.', slot: 'gray', icons: ['◴', 'hora', '🕐'],
+    what: 'Hora de agora, 24h ou 12h. Se aparecer errada, ajuste o fuso em Estilo > Hora (Brasil é −3).', source: 'Relógio do sistema.', example: '◴ 17:40', tip: 'Atualiza a cada 30 segundos.' },
+  { id: 'cwd', group: 'Sessão', name: 'Pasta do projeto', short: 'Nome da pasta em que a sessão está rodando.', slot: 'teal', icons: ['⌂', 'pasta', '📁'],
+    what: 'Só o nome da pasta atual, pra você não confundir projetos quando tem vários terminais abertos.', source: 'Diretório da sessão.', example: '⌂ Game', tip: 'Acompanha quando você troca de pasta com /cd.' }
+]
+const BYID = Object.fromEntries(WIDGETS.map(w => [w.id, w]))
+const GROUPS = ['Limites', 'Tokens', 'Custo', 'Contexto', 'Sessão']
+
+const CONCEPTS = [
+  { name: 'O que é um token?', body: 'Um pedacinho de texto: mais ou menos 4 letras em inglês ou 3 em português. É a unidade que a IA lê e escreve, e também a unidade pela qual ela é medida e cobrada. Uma página de texto dá umas 500 a 700 tokens.' },
+  { name: 'Janela de 5h e janela de 7d', body: 'Sua assinatura não é "ilimitada": ela tem um orçamento que renova em ciclos. Um ciclo curto de 5 horas e um teto semanal de 7 dias. As barras mostram quanto de cada orçamento já foi. Quando uma enche, você espera ela resetar (o ⟳ mostra quando).' },
+  { name: 'Cache de prompt', body: 'Cada mensagem reenvia a conversa toda pro modelo. Pra isso não ficar caro, a API guarda um "rascunho" do que já foi enviado. Ler esse rascunho custa uma fração do preço normal. É por isso que o número de cache é enorme e o de input novo é pequeno.' },
+  { name: 'Janela de contexto', body: 'A memória de curto prazo do modelo: quanto texto ele consegue considerar de uma vez. Quando enche, o Claude resume a conversa (auto-compact) pra continuar, e detalhes se perdem. A barra de contexto avisa antes disso.' },
+  { name: 'Custo × assinatura', body: 'O valor em $ é uma estimativa do que a sessão custaria pela API. Se você paga assinatura, não é cobrança extra. Serve pra comparar sessões e entender o que pesa mais.' },
+  { name: 'Cores de alerta', body: 'As barras de limite e de contexto mudam de cor sozinhas: amarelo quando passam do nível de aviso (padrão 70%) e vermelho no nível crítico (padrão 90%). Dá pra ajustar os dois números ou desligar em Estilo > Alertas de cor.' },
+  { name: 'Turno', body: 'Uma rodada completa: você manda uma mensagem, o Claude pensa, usa ferramentas e responde. Vários itens (último turno, tokens "por turno") se baseiam nisso.' },
+  { name: 'Animações da barra', body: 'Arco-íris: as cores giram pelo espectro. Respirar: o brilho sobe e desce suave. Brilho: um reflexo passa pelas barras. Pulsar alerta: itens no nível crítico piscam. Disco: as cores pulam entre as da paleta. Letreiro: a faixa vira um texto que rola. Tudo isso redesenha a faixa algumas vezes por segundo, então se o terminal piscar demais, usa velocidade "lenta" ou desliga.' },
+  { name: 'Indicador de atividade', body: 'Um símbolo no começo da faixa que gira enquanto o Claude está trabalhando e vira uma bolinha parada quando ele termina. Dá pra escolher o estilo (braille, barras, setas, lua…).' },
+  { name: 'Spinner', body: 'A linha que anima enquanto o Claude trabalha ("Sautéing… (12s)"). No Extras você troca as palavras por frases suas, faz elas rodarem sozinhas a cada poucos segundos e liga o arco-íris.' },
+  { name: 'Alertas (toasts)', body: 'Avisos rápidos que aparecem na tela quando algo passa de um nível: limite de 5h ou 7d, contexto, custo da sessão, ou um turno que demorou demais. Cada nível avisa uma vez e só de novo se a barra cair e subir outra vez.' }
+]
+
+const MAP = [
+  { cls: 'ok', title: 'Já dá pra mexer aqui no painel', items: [
+    ['Barra acima do prompt', 'itens, ordem, cores, estilo e animação'],
+    ['Spinner', 'a linha animada enquanto o Claude trabalha'],
+    ['Linha de fim de turno', 'o "Baked for 3s" com suas palavras'],
+    ['Dica embaixo do prompt', 'texto com seus dados (5h, custo, modelo…)'],
+    ['Alertas', 'aviso quando limite, contexto ou custo passam do nível']
+  ] },
+  { cls: 'mod', title: 'Dá pra fazer com o mesmo sistema de mods (é só pedir)', items: [
+    ['Painel lateral ou flutuante', 'histórico de custo, relógio, lista de tarefas…'],
+    ['Visual das mensagens', 'seu prompt, as respostas do Claude e as ferramentas no histórico'],
+    ['Comandos próprios', 'um /algo seu que faz o que você quiser'],
+    ['Reagir a eventos', 'bloquear ou reescrever comandos, mexer em prompts'],
+    ['Texto no rodapé', 'uma linha de status com o que você escolher']
+  ] },
+  { cls: 'cc', title: 'Configurações do próprio Claude Code (fora do mod)', items: [
+    ['Tema, modelo e esforço', 'via /config e /model'],
+    ['settings.json', 'permissões, hooks, variáveis de ambiente, status line por comando'],
+    ['Atalhos de teclado', 'arquivo de keybindings'],
+    ['CLAUDE.md, skills e subagentes', 'o jeito do Claude trabalhar e falar com você'],
+    ['MCP e plugins', 'conectar ferramentas e serviços externos']
+  ] }
+]
+
+const THINK = { requesting: 'conectando', thinking: 'pensando', 'tool-input': 'montando comando', 'tool-use': 'rodando ferramenta', responding: 'escrevendo' }
+
+/* ====================================================================
+   Padrões, paletas, presets (espelham o mod)
+   ==================================================================== */
+const DEFAULT_WORDS = ['Cozinhando', 'Fuçando', 'Matutando', 'Quebrando a cabeça', 'Pensando pra caralho', 'Maquinando', 'Garimpando', 'Costurando código', 'Dando um jeito', 'Fazendo a mágica']
+const DEFAULT_DONE = ['Cozinhou', 'Matutou', 'Resolveu', 'Fuçou', 'Quebrou a cabeça', 'Mandou ver']
+const DEFAULT_HINTS = ['5h {5h} · 7d {7d} · {cost}', '{model} · contexto {ctx}', 'agora são {time}']
+
+const DEFAULTS = {
+  version: 1, enabled: true,
+  widgets: ['limit5h', 'limit7d', 'spend', 'inTok', 'outTok', 'cacheTok', 'cost', 'cacheHit', 'totalTok', 'costPerTurn', 'burn', 'ctx', 'model', 'turns', 'duration', 'lastTurn', 'clock', 'cwd']
+    .map(id => ({ id, on: ['limit5h', 'limit7d', 'spend', 'inTok', 'outTok', 'cacheTok', 'cost'].includes(id) })),
+  style: {
+    look: 'pills', separator: ' │ ', align: 'left', gap: 1, padX: 1, labels: 'icons', dimLabels: false, palette: 'claude',
+    pillBase: '#15171c', pillTint: 0.22, barStyle: 'blocks', barWidth: 8, barGradient: false, showBars: true, showReset: true, resetFormat: 'remaining',
+    ctxDetail: false, numbers: 'compact', tokenScope: 'session',
+    heat: { on: true, warn: 70, crit: 90, warnColor: '#f5a623', critColor: '#e5484d' },
+    currency: { code: 'USD', rate: 5.5 }, tzOffset: null, clock24: true, hideWhileWorking: false, tickerWidth: 60,
+    anim: { mode: 'none', speed: 'normal', activity: false, activityStyle: 'braille' }
+  },
+  spinner: { on: false, words: DEFAULT_WORDS, cycleSec: 0, rainbow: false, showTime: true, showMode: true },
+  turnDone: { on: false, words: DEFAULT_DONE },
+  hint: { on: false, items: DEFAULT_HINTS },
+  alerts: { on: false, levels: [80, 95], costUsd: 0, longTurnSec: 0 }
+}
+const PALETTES = {
+  claude: { name: 'Claude', c: { green: '#5fb38f', purple: '#9b87e8', red: '#e8765f', teal: '#4fb3c4', blue: '#7b8ce8', amber: '#d9a93a', pink: '#d97fb0', gray: '#9aa0a6' } },
+  neon: { name: 'Neon', c: { green: '#39ff14', purple: '#bf5fff', red: '#ff3860', teal: '#00f0ff', blue: '#4d7cff', amber: '#ffd300', pink: '#ff4fd8', gray: '#c0c0c0' } },
+  dracula: { name: 'Dracula', c: { green: '#50fa7b', purple: '#bd93f9', red: '#ff5555', teal: '#8be9fd', blue: '#6d8cff', amber: '#f1fa8c', pink: '#ff79c6', gray: '#b0b4c8' } },
+  catppuccin: { name: 'Catppuccin', c: { green: '#a6e3a1', purple: '#cba6f7', red: '#f38ba8', teal: '#94e2d5', blue: '#89b4fa', amber: '#f9e2af', pink: '#f5c2e7', gray: '#a6adc8' } },
+  solarized: { name: 'Solarized', c: { green: '#859900', purple: '#6c71c4', red: '#dc322f', teal: '#2aa198', blue: '#268bd2', amber: '#b58900', pink: '#d33682', gray: '#93a1a1' } },
+  mono: { name: 'Monocromático', c: { green: '#c8c8c8', purple: '#c8c8c8', red: '#c8c8c8', teal: '#c8c8c8', blue: '#c8c8c8', amber: '#c8c8c8', pink: '#c8c8c8', gray: '#c8c8c8' } },
+  matrix: { name: 'Matrix', c: { green: '#00ff41', purple: '#39d353', red: '#7bff95', teal: '#00d9a0', blue: '#2bbd5f', amber: '#a3ff5c', pink: '#4dff9e', gray: '#6fcf8a' } },
+  sunset: { name: 'Pôr do sol', c: { green: '#ffb347', purple: '#ff6f91', red: '#ff5e57', teal: '#ffd166', blue: '#c77dff', amber: '#ffc75f', pink: '#ff8fab', gray: '#d1b3a1' } },
+  ocean: { name: 'Oceano', c: { green: '#2ec4b6', purple: '#7b9cff', red: '#ff7b9c', teal: '#48cae4', blue: '#4895ef', amber: '#ffd166', pink: '#a78bfa', gray: '#9db4c0' } },
+  brasil: { name: 'Brasil', c: { green: '#00a859', purple: '#4f86ff', red: '#ff6b57', teal: '#2fd1b5', blue: '#3f6fdb', amber: '#ffdf00', pink: '#ffd23f', gray: '#a8c8a0' } }
+}
+const BARS = { blocks: ['█', '░', 'Blocos'], smooth: ['▰', '▱', 'Suave'], dots: ['●', '○', 'Bolinhas'], line: ['━', '─', 'Linha'], ascii: ['#', '-', 'ASCII (retrô)'] }
+const ACTIVITY = {
+  braille: ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏'], dots: ['·', '•', '●', '•'], bars: ['▁', '▃', '▄', '▅', '▆', '▇', '█', '▇', '▆', '▅', '▄', '▃'],
+  arrows: ['←', '↖', '↑', '↗', '→', '↘', '↓', '↙'], moon: ['🌑', '🌒', '🌓', '🌔', '🌕', '🌖', '🌗', '🌘']
+}
+const SPEEDMS = { slow: 500, normal: 250, fast: 120 }
+const ANIMS = [['none', 'Nenhum'], ['rainbow', 'Arco-íris'], ['breathe', 'Respirar'], ['shimmer', 'Brilho'], ['pulse', 'Pulsar alerta'], ['disco', 'Disco']]
+
+/* Presets: ids = itens ligados, na ordem; o resto (style, spinner, turnDone, hint, alerts) sobrescreve o padrão. */
+const ALL = WIDGETS.map(w => w.id)
+const mk = (name, desc, ids, extra = {}) => ({ name, desc, ids, style: extra.style || {}, spinner: extra.spinner, turnDone: extra.turnDone, hint: extra.hint, alerts: extra.alerts })
+const BR_WORDS = ['Caprichando', 'Dando um jeitinho', 'Pensando no churrasco', 'Resolvendo na raça', 'Fazendo o corre', 'Botando pra fuder']
+const PRESETS = [
+  mk('Igual da imagem', 'Limites 5h/7d, tokens e custo em pílulas coloridas. O visual de partida.', ['limit5h', 'limit7d', 'inTok', 'outTok', 'cacheTok', 'cost']),
+  mk('Minimalista', 'Só o essencial, texto limpo, sem fundo.', ['limit5h', 'limit7d', 'cost'], { style: { look: 'plain', barWidth: 6, labels: 'text', palette: 'mono' } }),
+  mk('Dev focado', 'Modelo, contexto, custo, último turno e a pasta. Pra quem vive em vários projetos.', ['model', 'ctx', 'cost', 'lastTurn', 'cwd'], { style: { ctxDetail: true } }),
+  mk('Monitor de grana', 'Tudo sobre custo, já em reais.', ['cost', 'costPerTurn', 'burn', 'cacheHit', 'totalTok'], { style: { currency: { code: 'BRL', rate: 5.5 } } }),
+  mk('Só limites', 'As barras grandes de 5h e 7d, com o horário do reset.', ['limit5h', 'limit7d', 'spend'], { style: { barWidth: 14, resetFormat: 'clock' } }),
+  mk('Hacker', 'Retrô: barras ASCII, neon, rótulos em texto.', ['limit5h', 'ctx', 'model', 'clock'], { style: { look: 'plain', barStyle: 'ascii', palette: 'neon', labels: 'text', separator: ' | ' } }),
+  mk('Zen', 'Quase invisível: hora e 5h sem barra, centralizado.', ['clock', 'limit5h'], { style: { look: 'plain', align: 'center', showBars: false, labels: 'none', palette: 'mono' } }),
+  mk('Tudo ligado', 'Pra ver todos os itens de uma vez e escolher o que fica.', ALL),
+  // ---- dinâmicos ----
+  mk('Arco-íris', 'As cores giram sem parar, o spinner vira arco-íris e o fim de turno ganha palavra sua.', ['limit5h', 'limit7d', 'inTok', 'outTok', 'cost', 'model'],
+    { style: { anim: { mode: 'rainbow', speed: 'normal', activity: true, activityStyle: 'braille' } }, spinner: { on: true, rainbow: true, cycleSec: 4 }, turnDone: { on: true }, hint: { on: true } }),
+  mk('Respirando', 'Brilho que sobe e desce devagar, paleta suave. Relaxante.', ['limit5h', 'limit7d', 'cost', 'clock'], { style: { palette: 'catppuccin', anim: { mode: 'breathe', speed: 'slow', activity: false, activityStyle: 'dots' } } }),
+  mk('Disco', 'As cores pulam entre a paleta neon. Rápido e escandaloso.', ['limit5h', 'inTok', 'outTok', 'cacheTok', 'cost'], { style: { palette: 'neon', anim: { mode: 'disco', speed: 'fast', activity: true, activityStyle: 'bars' } }, spinner: { on: true, rainbow: true, cycleSec: 2 } }),
+  mk('Alerta vivo', 'Fica calmo até apertar: aí o item crítico pisca e você ganha avisos na tela.', ['limit5h', 'limit7d', 'ctx', 'cost'],
+    { style: { ctxDetail: true, heat: { on: true, warn: 60, crit: 85, warnColor: '#f5a623', critColor: '#ff3b3b' }, anim: { mode: 'pulse', speed: 'normal', activity: true, activityStyle: 'dots' } }, alerts: { on: true, levels: [60, 85, 95], costUsd: 0, longTurnSec: 120 } }),
+  mk('Termômetro', 'Barras com gradiente (verde → amarelo → vermelho) e um brilho passeando.', ['limit5h', 'limit7d', 'ctx'], { style: { barGradient: true, barWidth: 14, labels: 'text', anim: { mode: 'shimmer', speed: 'normal', activity: false, activityStyle: 'dots' } } }),
+  mk('Letreiro', 'A faixa vira um letreiro rolando, colorido em arco-íris.', ['limit5h', 'limit7d', 'cost', 'model', 'clock'], { style: { look: 'ticker', tickerWidth: 64, anim: { mode: 'rainbow', speed: 'normal', activity: true, activityStyle: 'arrows' } } }),
+  mk('Matrix', 'Verde fosforescente, barras ASCII e um reflexo correndo. Spinner hacker.', ['limit5h', 'ctx', 'cost', 'clock'],
+    { style: { look: 'plain', barStyle: 'ascii', palette: 'matrix', labels: 'text', separator: ' ▏', anim: { mode: 'shimmer', speed: 'fast', activity: true, activityStyle: 'bars' } },
+      spinner: { on: true, words: ['Hackeando a Matrix', 'Decodificando', 'Injetando código', 'Compilando o caos', 'Seguindo o coelho'], cycleSec: 3, rainbow: false }, turnDone: { on: true, words: ['Hackeou', 'Compilou', 'Decodificou'] } }),
+  mk('Pôr do sol', 'Tons quentes respirando devagar.', ['limit5h', 'limit7d', 'cost', 'clock'], { style: { palette: 'sunset', anim: { mode: 'breathe', speed: 'slow', activity: false, activityStyle: 'dots' } } }),
+  mk('Oceano', 'Azuis e verdes com um brilho lento nas barras.', ['limit5h', 'ctx', 'model'], { style: { look: 'plain', palette: 'ocean', anim: { mode: 'shimmer', speed: 'slow', activity: true, activityStyle: 'moon' } } }),
+  mk('Brasil', 'Verde-amarelo, em reais, no fuso de Brasília, spinner e avisos em português.', ['limit5h', 'limit7d', 'cost', 'clock'],
+    { style: { palette: 'brasil', currency: { code: 'BRL', rate: 5.5 }, tzOffset: -3, anim: { mode: 'disco', speed: 'slow', activity: true, activityStyle: 'braille' } },
+      spinner: { on: true, words: BR_WORDS, cycleSec: 4, rainbow: false }, turnDone: { on: true, words: ['Resolveu', 'Mandou bem', 'Fechou'] }, hint: { on: true, items: ['hoje já foi {cost} · 5h em {5h}', 'bora que {time} é hora de render'] }, alerts: { on: true, levels: [80, 95] } }),
+  mk('Streamer', 'Custo em R$, ritmo por hora e relógio, tudo girando devagar.', ['cost', 'burn', 'limit5h', 'clock', 'cwd'], { style: { currency: { code: 'BRL', rate: 5.5 }, palette: 'dracula', anim: { mode: 'rainbow', speed: 'slow', activity: true, activityStyle: 'dots' } }, hint: { on: true } }),
+  mk('Spinner em português', 'Faixa discreta, mas o Claude trabalha com palavras suas e frases rodando.', ['limit5h', 'cost'], { style: { look: 'plain', labels: 'text' }, spinner: { on: true, rainbow: false, cycleSec: 3 }, turnDone: { on: true }, hint: { on: true } }),
+  mk('Foco total', 'Só contexto e 5h, e a faixa some enquanto o Claude trabalha.', ['ctx', 'limit5h'], { style: { look: 'plain', labels: 'none', hideWhileWorking: true } })
+]
+
+/* ====================================================================
+   Normalização (mesma regra do mod: nada de lixo entra)
+   ==================================================================== */
+const clone = o => JSON.parse(JSON.stringify(o))
+const isObj = v => v && typeof v === 'object' && !Array.isArray(v)
+const pickv = (v, allowed, fb) => (allowed.includes(v) ? v : fb)
+const numv = (v, lo, hi, fb) => (typeof v === 'number' && isFinite(v) ? Math.min(hi, Math.max(lo, v)) : fb)
+const boolv = (v, fb) => (typeof v === 'boolean' ? v : fb)
+const colv = (v, fb) => (typeof v === 'string' && /^#[0-9a-fA-F]{6}$/.test(v) ? v : fb)
+const strList = (v, max, len, fb) => (Array.isArray(v) ? v.filter(x => typeof x === 'string' && x.trim() !== '').map(x => x.trim().slice(0, len)).slice(0, max) : fb)
+
+function normalize(raw) {
+  if (!isObj(raw)) return clone(DEFAULTS)
+  const D = DEFAULTS.style, s = isObj(raw.style) ? raw.style : {}, h = isObj(s.heat) ? s.heat : {}, c = isObj(s.currency) ? s.currency : {}, a = isObj(s.anim) ? s.anim : {}
+  const style = {
+    look: pickv(s.look, ['pills', 'plain', 'brackets', 'ticker'], D.look),
+    separator: typeof s.separator === 'string' ? s.separator.slice(0, 8) : D.separator,
+    align: pickv(s.align, ['left', 'center', 'right'], D.align),
+    gap: numv(s.gap, 0, 4, D.gap), padX: numv(s.padX, 0, 3, D.padX),
+    labels: pickv(s.labels, ['icons', 'text', 'emoji', 'none'], D.labels), dimLabels: boolv(s.dimLabels, D.dimLabels),
+    palette: pickv(s.palette, Object.keys(PALETTES), D.palette), pillBase: colv(s.pillBase, D.pillBase), pillTint: numv(s.pillTint, 0.05, 0.6, D.pillTint),
+    barStyle: pickv(s.barStyle, Object.keys(BARS), D.barStyle), barWidth: Math.round(numv(s.barWidth, 3, 20, D.barWidth)), barGradient: boolv(s.barGradient, D.barGradient),
+    showBars: boolv(s.showBars, D.showBars), showReset: boolv(s.showReset, D.showReset), resetFormat: pickv(s.resetFormat, ['remaining', 'clock'], D.resetFormat),
+    ctxDetail: boolv(s.ctxDetail, D.ctxDetail), numbers: pickv(s.numbers, ['compact', 'full'], D.numbers), tokenScope: pickv(s.tokenScope, ['session', 'lastTurn'], D.tokenScope),
+    heat: { on: boolv(h.on, D.heat.on), warn: numv(h.warn, 1, 100, D.heat.warn), crit: numv(h.crit, 1, 100, D.heat.crit), warnColor: colv(h.warnColor, D.heat.warnColor), critColor: colv(h.critColor, D.heat.critColor) },
+    currency: { code: pickv(c.code, ['USD', 'BRL'], D.currency.code), rate: numv(c.rate, 0.01, 1000, D.currency.rate) },
+    tzOffset: typeof s.tzOffset === 'number' && isFinite(s.tzOffset) ? numv(s.tzOffset, -12, 14, 0) : null,
+    clock24: boolv(s.clock24, D.clock24), hideWhileWorking: boolv(s.hideWhileWorking, D.hideWhileWorking), tickerWidth: Math.round(numv(s.tickerWidth, 20, 120, D.tickerWidth)),
+    anim: { mode: pickv(a.mode, ANIMS.map(x => x[0]), D.anim.mode), speed: pickv(a.speed, ['slow', 'normal', 'fast'], D.anim.speed), activity: boolv(a.activity, D.anim.activity), activityStyle: pickv(a.activityStyle, Object.keys(ACTIVITY), D.anim.activityStyle) }
+  }
+  const sp = isObj(raw.spinner) ? raw.spinner : {}, td = isObj(raw.turnDone) ? raw.turnDone : {}, hi = isObj(raw.hint) ? raw.hint : {}, al = isObj(raw.alerts) ? raw.alerts : {}
+  const lv = Array.isArray(al.levels) ? al.levels.filter(x => typeof x === 'number' && x >= 1 && x <= 100).map(Math.round).slice(0, 6) : DEFAULTS.alerts.levels
+  const known = WIDGETS.map(w => w.id), seen = [], widgets = []
+  if (Array.isArray(raw.widgets)) for (const w of raw.widgets) {
+    if (isObj(w) && known.includes(w.id) && !seen.includes(w.id)) {
+      seen.push(w.id)
+      const it = { id: w.id, on: w.on === true }
+      if (typeof w.color === 'string' && /^#[0-9a-fA-F]{6}$/.test(w.color)) it.color = w.color
+      widgets.push(it)
+    }
+  }
+  for (const id of known) if (!seen.includes(id)) widgets.push({ id, on: false })
+  return {
+    version: 1, enabled: boolv(raw.enabled, true), widgets, style,
+    spinner: { on: boolv(sp.on, false), words: strList(sp.words, 30, 40, DEFAULT_WORDS), cycleSec: numv(sp.cycleSec, 0, 30, 0), rainbow: boolv(sp.rainbow, false), showTime: boolv(sp.showTime, true), showMode: boolv(sp.showMode, true) },
+    turnDone: { on: boolv(td.on, false), words: strList(td.words, 30, 40, DEFAULT_DONE) },
+    hint: { on: boolv(hi.on, false), items: strList(hi.items, 20, 80, DEFAULT_HINTS) },
+    alerts: { on: boolv(al.on, false), levels: lv.filter((x, i) => lv.indexOf(x) === i).sort((x, y) => x - y), costUsd: numv(al.costUsd, 0, 100000, 0), longTurnSec: numv(al.longTurnSec, 0, 3600, 0) }
+  }
+}
+
+/* ====================================================================
+   Renderização (porta fiel do mod, em DOM)
+   ==================================================================== */
+const compact = n => (n >= 1e6 ? (n / 1e6).toFixed(1) + 'M' : n >= 1e3 ? (n / 1e3).toFixed(1) + 'k' : String(Math.round(n)))
+const fmtN = (n, S) => (S.numbers === 'full' ? String(Math.round(n)).replace(/\B(?=(\d{3})+(?!\d))/g, '.') : compact(n))
+const money = (usd, S) => (S.currency.code === 'BRL' ? 'R$ ' + (usd * S.currency.rate).toFixed(2) : '$' + usd.toFixed(2))
+const span = mins => { const d = Math.floor(mins / 1440), h = Math.floor((mins % 1440) / 60), m = Math.floor(mins % 60); return d > 0 ? `${d}d ${h}h` : h > 0 ? `${h}h ${m}m` : `${m}m` }
+const secsFmt = ms => { const s = Math.max(0, Math.round(ms / 1000)); return s >= 60 ? `${Math.floor(s / 60)}m ${s % 60}s` : `${s}s` }
+const WD = ['dom', 'seg', 'ter', 'qua', 'qui', 'sex', 'sáb']
+function atClock(ms, S, now) {
+  const off = S.tzOffset, d = new Date(off === null ? ms : ms + off * 3600000)
+  const h = off === null ? d.getHours() : d.getUTCHours(), m = off === null ? d.getMinutes() : d.getUTCMinutes(), wd = off === null ? d.getDay() : d.getUTCDay()
+  const hh = S.clock24 ? String(h).padStart(2, '0') : String(h % 12 || 12), suf = S.clock24 ? '' : h >= 12 ? 'pm' : 'am'
+  const t = `${hh}:${String(m).padStart(2, '0')}${suf}`
+  return now !== undefined && ms - now > 20 * 3600000 ? `${WD[wd]} ${t}` : t
+}
+const heatC = (p, S) => (!S.heat.on ? undefined : p >= S.heat.crit ? S.heat.critColor : p >= S.heat.warn ? S.heat.warnColor : undefined)
+const hexv = c => [1, 3, 5].map(i => parseInt(c.slice(i, i + 2), 16))
+const mixc = (a, b, t) => { const x = hexv(a), y = hexv(b); return '#' + x.map((v, i) => Math.round(v * t + y[i] * (1 - t)).toString(16).padStart(2, '0')).join('') }
+const lerpc = (a, b, t) => mixc(b, a, t)
+const hsl = (h, s, l) => { const k = n => (n + h / 30) % 12, a = s * Math.min(l, 1 - l), f = n => l - a * Math.max(-1, Math.min(k(n) - 3, Math.min(9 - k(n), 1))); return '#' + [f(0), f(8), f(4)].map(v => Math.round(v * 255).toString(16).padStart(2, '0')).join('') }
+const prettyModel = id => { const p = id.replace(/\[.*\]$/, '').replace(/^claude-/, '').replace(/-\d{8}$/, '').split('-').filter(Boolean); if (!p.length) return ''; const [n, ...r] = p; const nums = r.filter(v => /^\d+$/.test(v)); return n[0].toUpperCase() + n.slice(1) + (nums.length ? ' ' + nums.join('.') : '') }
+
+function animFg(fg, i, f, S, isAlert) {
+  switch (S.anim.mode) {
+    case 'rainbow': return hsl((f * 14 + i * 47) % 360, 0.72, 0.64)
+    case 'breathe': { const t = (Math.sin(f * 0.3 + i * 0.5) + 1) / 2; return mixc(fg, '#0b0b0b', 0.5 + 0.5 * t) }
+    case 'disco': { const pal = Object.values(PALETTES[S.palette].c); return pal[(f + i) % pal.length] }
+    case 'pulse': return isAlert ? (f % 2 === 0 ? S.heat.critColor : mixc(S.heat.critColor, '#0b0b0b', 0.3)) : fg
+    default: return fg
+  }
+}
+
+function barPart(p, S, c) {
+  const filled = Math.max(0, Math.min(S.barWidth, Math.round(p / 100 * S.barWidth))), [on, off] = BARS[S.barStyle]
+  return { t: on.repeat(filled) + off.repeat(S.barWidth - filled), k: 'main', c, bar: { filled, width: S.barWidth } }
+}
+
+function buildCell(id, D, S) {
+  const label = S.labels === 'none' ? '' : BYID[id].icons[S.labels === 'icons' ? 0 : S.labels === 'text' ? 1 : 2]
+  const cell = (...parts) => ({ label, parts })
+  const src = S.tokenScope === 'lastTurn' ? D.last : D.totals
+  const limit = kind => {
+    const l = D.limits.find(x => x.kind === kind); if (!l) return null
+    const p = Math.round(l.percentUsed), c = heatC(p, S), parts = []
+    if (S.showBars) parts.push(barPart(p, S, c))
+    parts.push({ t: p + '%', k: 'strong', c })
+    if (S.showReset && l.resetsAt) { const at = Date.parse(l.resetsAt); parts.push({ t: '⟳ ' + (S.resetFormat === 'clock' ? atClock(at, S, D.now) : span(Math.max(0, Math.round((at - D.now) / 60000)))), k: 'dim' }) }
+    return cell(...parts)
+  }
+  switch (id) {
+    case 'limit5h': return limit('five_hour')
+    case 'limit7d': return limit('seven_day')
+    case 'spend': return limit('spend_limit')
+    case 'inTok': return cell({ t: fmtN(src.input, S), k: 'main' })
+    case 'outTok': return cell({ t: fmtN(src.output, S), k: 'main' })
+    case 'cacheTok': return cell({ t: fmtN(src.cache, S), k: 'main' })
+    case 'cacheHit': { const tot = src.input + src.cache; return cell({ t: tot > 0 ? Math.round(src.cacheRead / tot * 100) + '%' : '–', k: 'main' }) }
+    case 'totalTok': return cell({ t: fmtN(src.input + src.output + src.cache, S), k: 'main' })
+    case 'cost': return cell({ t: money(D.usd, S), k: 'main' })
+    case 'costPerTurn': return cell({ t: D.turns > 0 ? money(D.usd / D.turns, S) : '–', k: 'main' })
+    case 'burn': { const hrs = (D.now - D.startedAt) / 3600000; return cell({ t: D.startedAt > 0 && hrs >= 1 / 60 ? money(D.usd / hrs, S) + '/h' : '–', k: 'main' }) }
+    case 'ctx': {
+      if (!D.ctx) return null
+      const p = D.ctx.percent, c = p === undefined ? undefined : heatC(p, S), parts = []
+      if (S.showBars && p !== undefined) parts.push(barPart(p, S, c))
+      parts.push({ t: p === undefined ? '–' : Math.round(p) + '%', k: 'strong', c })
+      if (S.ctxDetail && D.ctx.tokens !== undefined) parts.push({ t: compact(D.ctx.tokens) + '/' + compact(D.ctx.window), k: 'dim' })
+      return cell(...parts)
+    }
+    case 'model': return D.model ? cell({ t: prettyModel(D.model), k: 'main' }) : null
+    case 'turns': return cell({ t: String(D.turns), k: 'main' })
+    case 'duration': return D.startedAt > 0 ? cell({ t: span(Math.max(0, (D.now - D.startedAt) / 60000)), k: 'main' }) : null
+    case 'lastTurn': return D.last ? cell({ t: Math.round(D.last.ms / 1000) + 's', k: 'main' }, { t: '· ' + D.last.tools + ' tools', k: 'dim' }) : null
+    case 'clock': return D.now > 0 ? cell({ t: atClock(D.now, S), k: 'main' }) : null
+    case 'cwd': { const n = D.cwd.split(/[\\/]/).filter(Boolean).pop(); return n ? cell({ t: n, k: 'main' }) : null }
+  }
+  return null
+}
+
+const group = chars => { const runs = []; for (const x of chars) { const p = runs[runs.length - 1]; if (p && p.c === x.c && !!p.dim === !!x.dim) p.t += x.ch; else runs.push({ t: x.ch, c: x.c, dim: x.dim }) } return runs }
+function barRuns(p, base, f, S) {
+  const { filled, width } = p.bar, [on, off] = BARS[S.barStyle], lit = S.anim.mode === 'shimmer' ? (f % (width + 4)) - 2 : -99, chars = []
+  for (let i = 0; i < width; i++) {
+    if (i >= filled) { chars.push({ ch: off, c: base, dim: true }); continue }
+    let c = base
+    if (S.barGradient && !p.c) { const t = width > 1 ? i / (width - 1) : 0; c = t < 0.6 ? lerpc(base, S.heat.warnColor, t / 0.6) : lerpc(S.heat.warnColor, S.heat.critColor, (t - 0.6) / 0.4) }
+    if (i === lit) c = mixc(c, '#ffffff', 0.3); else if (i === lit - 1 || i === lit + 1) c = mixc(c, '#ffffff', 0.7)
+    chars.push({ ch: on, c })
+  }
+  return group(chars)
+}
+function partRuns(p, fg, f, S) {
+  if (p.bar) return barRuns(p, p.c || fg, f, S)
+  if (p.k === 'strong') return [{ t: p.t, bold: true, c: p.c }]
+  if (p.k === 'dim') return [{ t: p.t, dim: true }]
+  return [{ t: p.t, c: p.c || fg }]
+}
+
+function el(tag, props, ...kids) {
+  const e = document.createElement(tag)
+  for (const [k, v] of Object.entries(props || {})) {
+    if (v === undefined || v === null || v === false) continue
+    if (k === 'class') e.className = v
+    else if (k === 'style' && typeof v === 'object') Object.assign(e.style, v)
+    else if (k.startsWith('on')) e.addEventListener(k.slice(2), v)
+    else if (k === 'text') e.textContent = v
+    else e.setAttribute(k, v === true ? '' : v)
+  }
+  for (const kid of kids.flat()) if (kid !== null && kid !== undefined && kid !== false) e.append(kid.nodeType ? kid : document.createTextNode(String(kid)))
+  return e
+}
+const runSpan = (r, fb) => el('span', { text: r.t, style: { color: r.c || fb || (r.bold || r.dim ? '#ececf1' : undefined), fontWeight: r.bold ? 700 : undefined, opacity: r.dim ? 0.5 : undefined } })
+
+function renderBand(cfg, D, target, f = 0, isWorking = false) {
+  const S = cfg.style, pal = PALETTES[S.palette].c
+  target.replaceChildren(); target.className = 'band'; target.style.cssText = ''
+  if (!cfg.enabled) { target.className = 'band-off'; target.textContent = '(barra desligada)'; return }
+  if (S.hideWhileWorking && isWorking) { target.className = 'band-off'; target.textContent = '(a faixa some enquanto o Claude trabalha)'; return }
+  const items = []
+  for (const w of cfg.widgets) {
+    if (!w.on) continue
+    const cell = buildCell(w.id, D, S)
+    if (cell) items.push({ id: w.id, cell, fg: w.color || pal[BYID[w.id].slot], alert: S.heat.on && cell.parts.some(p => p.c === S.heat.critColor) })
+  }
+  if (!items.length) { target.className = 'band-off'; target.textContent = '(nenhum item ligado: o Claude desenha a barra padrão dele)'; return }
+  target.style.justifyContent = S.align === 'left' ? 'flex-start' : S.align === 'center' ? 'center' : 'flex-end'
+  target.style.columnGap = (S.look === 'plain' || S.look === 'ticker' ? 0 : S.gap) + 'ch'
+
+  if (S.anim.activity) {
+    const fr = ACTIVITY[S.anim.activityStyle], glyph = isWorking ? fr[f % fr.length] : '●'
+    target.append(el('div', { class: 'cell', style: { marginRight: S.look === 'ticker' ? '1ch' : '0' } }, el('span', { text: glyph, style: { color: S.anim.mode === 'rainbow' ? hsl((f * 14) % 360, 0.72, 0.64) : pal.green, opacity: isWorking ? 1 : 0.5 } })))
+  }
+
+  if (S.look === 'ticker') {
+    const chars = []
+    items.forEach(it => {
+      const text = [it.cell.label, ...it.cell.parts.map(p => p.t)].filter(Boolean).join(' ')
+      for (const ch of text) chars.push({ ch, c: it.fg })
+      for (const ch of '   •   ') chars.push({ ch, c: it.fg, dim: true })
+    })
+    const n = chars.length, off = f % n, view = []
+    for (let i = 0; i < S.tickerWidth; i++) { const x = chars[(off + i) % n]; view.push(S.anim.mode === 'rainbow' ? { ch: x.ch, c: hsl((f * 14 + i * 9) % 360, 0.72, 0.64), dim: x.dim } : x) }
+    target.append(el('div', { class: 'cell' }, group(view).map(r => runSpan(r))))
+    return
+  }
+
+  items.forEach((it, i) => {
+    const fg = animFg(it.fg, i, f, S, it.alert), kids = []
+    const sp = (t, style) => el('span', { text: t, style })
+    if (S.look === 'brackets') kids.push(sp('[', { opacity: .5 }))
+    if (it.cell.label) kids.push(sp(it.cell.label, { color: fg, opacity: S.dimLabels ? .5 : 1 }))
+    it.cell.parts.forEach(p => kids.push(el('span', { style: { display: 'inline-flex' } }, partRuns(p, fg, f, S).map(r => runSpan(r, fg)))))
+    if (S.look === 'brackets') kids.push(sp(']', { opacity: .5 }))
+    const style = { columnGap: '1ch' }
+    if (S.look === 'pills') { style.background = mixc(fg, S.pillBase, S.pillTint); style.padding = `0 ${S.padX}ch` }
+    target.append(el('div', { class: 'cell', style }, kids))
+    if (S.look === 'plain' && i < items.length - 1) target.append(el('div', { class: 'cell', style: { opacity: .5 } }, el('span', { text: S.separator })))
+  })
+}
+
+/* spinner / fim de turno / dica no preview */
+function renderActivityLine(cfg, f, working, elapsedMs) {
+  const t = $('#activity'); t.replaceChildren()
+  const pal = PALETTES[cfg.style.palette].c
+  if (!cfg.enabled) return
+  if (working) {
+    const SP = cfg.spinner
+    if (!SP.on) { t.append(el('span', { text: '✻ Sautéing… (' + secsFmt(elapsedMs) + ' · thinking)', style: { color: '#c9a27a' } })); return }
+    const words = SP.words.length ? SP.words : DEFAULT_WORDS
+    const word = words[(3 + (SP.cycleSec > 0 ? Math.floor(elapsedMs / 1000 / SP.cycleSec) : 0)) % words.length]
+    if (!(SP.rainbow || SP.cycleSec > 0)) { t.append(el('span', { text: '✻ ' + word + '…', style: { color: '#c9a27a' } }), el('span', { text: ' (' + secsFmt(elapsedMs) + ')', style: { opacity: .5 } })); return }
+    const g = ACTIVITY.braille[f % ACTIVITY.braille.length]
+    Array.from(g + ' ' + word + '…').forEach((ch, i) => t.append(el('span', { text: ch, style: { fontWeight: 700, color: SP.rainbow ? hsl((f * 16 + i * 24) % 360, 0.75, 0.66) : pal.amber } })))
+    const tail = [SP.showTime ? secsFmt(elapsedMs) : '', SP.showMode ? THINK.thinking : ''].filter(Boolean).join(' · ')
+    if (tail) t.append(el('span', { text: ' (' + tail + ')', style: { opacity: .5 } }))
+  } else {
+    const TD = cfg.turnDone
+    if (!TD.on) { t.append(el('span', { text: '✻ Baked for 12s', style: { opacity: .5 } })); return }
+    const words = TD.words.length ? TD.words : DEFAULT_DONE
+    t.append(el('span', { text: '✻ ' + words[2 % words.length] + ' em 12s', style: { color: pal.pink, opacity: .6 } }))
+  }
+}
+function hintText(cfg, D) {
+  const HI = cfg.hint
+  if (!cfg.enabled || !HI.on || !HI.items.length) return ''
+  const pct = k => { const l = D.limits.find(x => x.kind === k); return l ? Math.round(l.percentUsed) + '%' : '–' }
+  const vars = { '5h': pct('five_hour'), '7d': pct('seven_day'), cost: money(D.usd, cfg.style), ctx: D.ctx && D.ctx.percent !== undefined ? Math.round(D.ctx.percent) + '%' : '–', model: prettyModel(D.model), time: atClock(D.now, cfg.style), turns: String(D.turns), dir: D.cwd.split(/[\\/]/).filter(Boolean).pop() || '' }
+  return HI.items[D.turns % HI.items.length].replace(/\{(\w+)\}/g, (m, k) => (k in vars ? vars[k] : m))
+}
+
+/* ====================================================================
+   Estado
+   ==================================================================== */
+const $ = s => document.querySelector(s)
+let cfg = clone(DEFAULTS)
+let serverOk = false, dirty = false, saveTimer = null, cfgPath = '~/.claude/usage-band.json'
+let frame = 0, working = false, workStart = Date.now(), tickTimer = null, tickMs = 0
+/* modo demo (?demo): não fala com o servidor, não salva e deixa o tempo na mão de quem grava prints/vídeo */
+const QS = new URLSearchParams(location.search), DEMO = QS.has('demo')
+let demoElapsed = 0
+const sample = { five: 20, seven: 58, ctx: 42, cost: 4.32, spend: false, cols: 110 }
+const liveDemos = []
+
+function sampleData() {
+  const now = Date.now()
+  const lim = [{ kind: 'five_hour', percentUsed: sample.five, resetsAt: new Date(now + 160 * 60000).toISOString() }, { kind: 'seven_day', percentUsed: sample.seven, resetsAt: new Date(now + 31 * 3600000).toISOString() }]
+  if (sample.spend) lim.push({ kind: 'spend_limit', percentUsed: 35 })
+  return {
+    limits: lim, usd: sample.cost, totals: { input: 15600, output: 3000, cache: 954200, cacheRead: 898000 }, last: { input: 420, output: 880, cache: 61000, cacheRead: 59000, ms: 12000, tools: 4 },
+    ctx: { tokens: Math.round(sample.ctx * 2000), window: 200000, percent: sample.ctx }, model: 'claude-opus-5-5', turns: 12, startedAt: now - 75 * 60000, now, cwd: 'C:\\Users\\voce\\projetos\\meu-app'
+  }
+}
+const toast = msg => { if (DEMO) return; const t = $('#toast'); t.textContent = msg; t.classList.add('show'); clearTimeout(toast.t); toast.t = setTimeout(() => t.classList.remove('show'), 1800) }
+
+function setStatus() {
+  const s = $('#status'); s.className = 'chip'
+  if (!serverOk) { s.classList.add('off'); s.lastChild.textContent = 'servidor offline: não está salvando' }
+  else if (dirty) { s.classList.add('dirty'); s.lastChild.textContent = 'alterações não salvas' }
+  else { s.classList.add('ok'); s.lastChild.textContent = 'salvo: a barra atualiza em ~2s' }
+  $('#offlineBanner').classList.toggle('show', !serverOk)
+}
+
+async function save() {
+  clearTimeout(saveTimer)
+  if (DEMO) return
+  try {
+    const r = await fetch('/api/config', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(cfg) })
+    if (!r.ok) throw new Error((await r.json()).error || r.status)
+    serverOk = true; dirty = false
+  } catch (e) { serverOk = false }
+  setStatus()
+}
+
+function drawPreview() {
+  const D = sampleData()
+  renderBand(cfg, D, $('#band'), frame, working)
+  renderActivityLine(cfg, frame, working, DEMO ? demoElapsed : Date.now() - workStart)
+  const tail = working ? '' : hintText(cfg, D)
+  $('#hintTail').textContent = tail ? ' ' + tail : ''
+}
+function drawDemos() {
+  if (!$('#tab-presets').classList.contains('on')) return
+  const D = sampleData()
+  liveDemos.forEach(d => renderBand(d.cfg, D, d.node, frame, !d.cfg.style.hideWhileWorking))
+}
+function syncTimer() {
+  if (DEMO) return
+  const a = cfg.style.anim, SP = cfg.spinner
+  const need = cfg.enabled && (a.mode !== 'none' || cfg.style.look === 'ticker' || a.activity || (SP.on && (SP.rainbow || SP.cycleSec > 0)) || working)
+  const ms = need ? SPEEDMS[a.speed] : 0
+  if (ms === tickMs) return
+  clearInterval(tickTimer); tickTimer = null; tickMs = ms
+  if (ms > 0) tickTimer = setInterval(() => { frame++; drawPreview(); drawDemos() }, ms)
+}
+
+function changed() {
+  dirty = true
+  drawPreview(); syncTimer()
+  updateConditional()
+  $('#json').value = JSON.stringify(cfg, null, 2)
+  setStatus()
+  clearTimeout(saveTimer)
+  if ($('#autosave').checked && serverOk) saveTimer = setTimeout(save, 350)
+}
+
+/* ====================================================================
+   Controles genéricos ligados a caminhos do cfg
+   ==================================================================== */
+const getp = (o, p) => p.split('.').reduce((a, k) => a[k], o)
+const setp = (o, p, v) => { const ks = p.split('.'); const last = ks.pop(); ks.reduce((a, k) => a[k], o)[last] = v }
+const conditionals = []
+let ctlPaint = []
+
+function field(label, hint, control, when, col) {
+  const f = el('div', { class: 'field' }, el('div', { class: 'row' + (col ? ' col' : '') }, el('span', { class: 'lbl', text: label }), control), hint && (typeof hint === 'string' ? el('div', { class: 'hint', text: hint }) : hint))
+  if (when) conditionals.push({ f, when })
+  return f
+}
+function updateConditional() { for (const c of conditionals) c.f.classList.toggle('hidden', !c.when(cfg)) }
+
+function segCtl(path, opts) {
+  const wrap = el('div', { class: 'seg' })
+  const paint = () => [...wrap.children].forEach(b => b.classList.toggle('on', b.dataset.v === String(getp(cfg, path))))
+  opts.forEach(([v, text]) => wrap.append(el('button', { 'data-v': String(v), text, onclick: () => { setp(cfg, path, v); paint(); changed() } })))
+  ctlPaint.push(paint); paint()
+  return wrap
+}
+function switchCtl(path) {
+  const inp = el('input', { type: 'checkbox' })
+  inp.addEventListener('change', () => { setp(cfg, path, inp.checked); changed() })
+  const paint = () => { inp.checked = !!getp(cfg, path) }
+  ctlPaint.push(paint); paint()
+  return el('span', { class: 'switch' }, inp, el('s'))
+}
+function rangeCtl(path, min, max, step, fmt = v => v) {
+  const out = el('span', { class: 'val' }), inp = el('input', { type: 'range', min, max, step })
+  inp.addEventListener('input', () => { setp(cfg, path, Number(inp.value)); out.textContent = fmt(Number(inp.value)); changed() })
+  const paint = () => { inp.value = getp(cfg, path); out.textContent = fmt(Number(inp.value)) }
+  ctlPaint.push(paint); paint()
+  return el('span', { style: { display: 'flex', alignItems: 'center', gap: '10px' } }, inp, out)
+}
+function colorCtl(path) {
+  const inp = el('input', { type: 'color' })
+  inp.addEventListener('input', () => { setp(cfg, path, inp.value); changed() })
+  const paint = () => { inp.value = getp(cfg, path) }
+  ctlPaint.push(paint); paint()
+  return inp
+}
+function textCtl(path, max) {
+  const inp = el('input', { type: 'text', maxlength: max })
+  inp.addEventListener('input', () => { setp(cfg, path, inp.value); changed() })
+  const paint = () => { inp.value = getp(cfg, path) }
+  ctlPaint.push(paint); paint()
+  return inp
+}
+function numCtl(path, min, max, step, width = 90) {
+  const inp = el('input', { type: 'number', min, max, step, style: { width: width + 'px' } })
+  inp.addEventListener('input', () => { setp(cfg, path, inp.value === '' ? 0 : Number(inp.value)); changed() })
+  const paint = () => { inp.value = getp(cfg, path) }
+  ctlPaint.push(paint); paint()
+  return inp
+}
+function listCtl(path, max, len, rows = 5) {
+  const ta = el('textarea', { class: 'list', rows, spellcheck: 'false' })
+  ta.addEventListener('input', () => { setp(cfg, path, ta.value.split('\n').map(x => x.trim()).filter(Boolean).map(x => x.slice(0, len)).slice(0, max)); changed() })
+  const paint = () => { if (document.activeElement !== ta) ta.value = getp(cfg, path).join('\n') }
+  ctlPaint.push(paint); paint()
+  return ta
+}
+function levelsCtl(path) {
+  const inp = el('input', { type: 'text', style: { width: '140px' }, placeholder: '80, 95' })
+  inp.addEventListener('input', () => {
+    const v = inp.value.split(/[ ,;]+/).map(Number).filter(n => isFinite(n) && n >= 1 && n <= 100).map(Math.round).slice(0, 6)
+    setp(cfg, path, [...new Set(v)].sort((a, b) => a - b)); changed()
+  })
+  const paint = () => { if (document.activeElement !== inp) inp.value = getp(cfg, path).join(', ') }
+  ctlPaint.push(paint); paint()
+  return inp
+}
+
+/* ====================================================================
+   Aba: Itens
+   ==================================================================== */
+let filter = 'Todos', dragId = null
+function renderFilters() {
+  const box = $('#filters'); box.replaceChildren()
+  ;['Todos', ...GROUPS].forEach(g => box.append(el('button', { class: 'pillbtn' + (g === filter ? ' on' : ''), text: g, onclick: () => { filter = g; renderFilters(); renderItems() } })))
+  box.append(el('span', { class: 'spacer' }))
+  box.append(el('button', { class: 'btn small', text: 'Ligar todos', onclick: () => { cfg.widgets.forEach(w => { if (filter === 'Todos' || BYID[w.id].group === filter) w.on = true }); renderItems(); changed() } }))
+  box.append(el('button', { class: 'btn small', text: 'Desligar todos', onclick: () => { cfg.widgets.forEach(w => { if (filter === 'Todos' || BYID[w.id].group === filter) w.on = false }); renderItems(); changed() } }))
+}
+function move(id, delta) {
+  const i = cfg.widgets.findIndex(w => w.id === id), j = i + delta
+  if (j < 0 || j >= cfg.widgets.length) return
+  ;[cfg.widgets[i], cfg.widgets[j]] = [cfg.widgets[j], cfg.widgets[i]]
+  renderItems(); changed()
+}
+function renderItems() {
+  const ul = $('#items'); ul.replaceChildren()
+  const pal = PALETTES[cfg.style.palette].c
+  cfg.widgets.forEach(w => {
+    const m = BYID[w.id]
+    if (filter !== 'Todos' && m.group !== filter) return
+    const sw = el('input', { type: 'checkbox' }); sw.checked = w.on
+    sw.addEventListener('change', () => { w.on = sw.checked; li.classList.toggle('off', !w.on); changed() })
+    const col = el('input', { type: 'color', class: 'swatch', value: w.color || pal[m.slot], title: 'Cor só deste item' })
+    col.addEventListener('input', () => { w.color = col.value; clr.style.visibility = 'visible'; changed() })
+    const clr = el('button', { class: 'clr', text: 'auto', style: { visibility: w.color ? 'visible' : 'hidden' }, title: 'Voltar pra cor da paleta', onclick: () => { delete w.color; col.value = PALETTES[cfg.style.palette].c[m.slot]; clr.style.visibility = 'hidden'; changed() } })
+    const li = el('li', { class: 'item' + (w.on ? '' : ' off'), 'data-id': w.id },
+      el('span', { class: 'grip', text: '⠿', title: 'Arrasta pra reordenar', draggable: 'true' }),
+      el('span', { class: 'switch' }, sw, el('s')),
+      el('div', {}, el('div', { class: 'nm' }, m.name, el('span', { class: 'badge g-' + m.group, text: m.group })), el('div', { class: 'ds', text: m.short })),
+      el('div', { class: 'colwrap mini' }, col, clr),
+      el('div', { class: 'mini last' },
+        el('button', { text: '↑', title: 'Subir', onclick: () => move(w.id, -1) }),
+        el('button', { text: '↓', title: 'Descer', onclick: () => move(w.id, 1) }),
+        el('button', { text: '?', title: 'O que é isso?', onclick: () => gotoGloss(w.id) })))
+    const grip = li.querySelector('.grip')
+    grip.addEventListener('dragstart', e => { dragId = w.id; li.classList.add('dragging'); e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setDragImage(li, 20, 20) })
+    grip.addEventListener('dragend', () => { dragId = null; document.querySelectorAll('.item').forEach(x => x.classList.remove('dragging', 'over')) })
+    li.addEventListener('dragover', e => { if (dragId && dragId !== w.id) { e.preventDefault(); li.classList.add('over') } })
+    li.addEventListener('dragleave', () => li.classList.remove('over'))
+    li.addEventListener('drop', e => {
+      e.preventDefault()
+      if (!dragId || dragId === w.id) return
+      const from = cfg.widgets.findIndex(x => x.id === dragId), item = cfg.widgets.splice(from, 1)[0]
+      cfg.widgets.splice(cfg.widgets.findIndex(x => x.id === w.id), 0, item)
+      renderItems(); changed()
+    })
+    ul.append(li)
+  })
+}
+
+/* ====================================================================
+   Aba: Estilo
+   ==================================================================== */
+function renderStyle() {
+  ctlPaint = []; conditionals.length = 0
+  const box = $('#styleCards'); box.replaceChildren()
+  const card = (title, desc, ...fields) => box.append(el('div', { class: 'card' }, el('h3', { text: title }), el('p', { text: desc }), fields))
+
+  card('Aparência', 'O jeitão geral da faixa.',
+    field('Estilo', 'Pílulas têm fundo colorido. Texto simples separa com um símbolo. Colchetes envolvem cada item. Letreiro rola tudo numa linha só.', segCtl('style.look', [['pills', 'Pílulas'], ['plain', 'Texto simples'], ['brackets', 'Colchetes'], ['ticker', 'Letreiro']])),
+    field('Largura do letreiro', 'Quantas colunas o letreiro ocupa.', rangeCtl('style.tickerWidth', 20, 120, 1, v => v + ' col'), c => c.style.look === 'ticker'),
+    field('Separador', 'O que fica entre os itens no modo texto simples.', textCtl('style.separator', 8), c => c.style.look === 'plain'),
+    field('Alinhamento', 'Onde a faixa fica na linha.', segCtl('style.align', [['left', 'Esquerda'], ['center', 'Centro'], ['right', 'Direita']])),
+    field('Espaço entre itens', 'Em colunas de terminal.', rangeCtl('style.gap', 0, 4, 1), c => c.style.look === 'pills' || c.style.look === 'brackets'),
+    field('Respiro dentro da pílula', 'Margem interna esquerda e direita.', rangeCtl('style.padX', 0, 3, 1), c => c.style.look === 'pills'),
+    field('Rótulos', 'O que aparece antes de cada valor: ícone, nome, emoji ou nada. Emoji pode desalinhar em alguns terminais.', segCtl('style.labels', [['icons', 'Ícones'], ['text', 'Texto'], ['emoji', 'Emoji'], ['none', 'Nenhum']])),
+    field('Rótulos apagadinhos', 'Deixa o rótulo mais discreto pro valor chamar atenção.', switchCtl('style.dimLabels')))
+
+  const legend = el('div', { class: 'legend' },
+    el('div', {}, el('b', { text: 'Arco-íris' }), ' as cores giram pelo espectro.'), el('div', {}, el('b', { text: 'Respirar' }), ' o brilho sobe e desce suave.'),
+    el('div', {}, el('b', { text: 'Brilho' }), ' um reflexo passeia pelas barras.'), el('div', {}, el('b', { text: 'Pulsar alerta' }), ' itens no nível crítico piscam.'),
+    el('div', {}, el('b', { text: 'Disco' }), ' as cores pulam entre as da paleta.'))
+  card('Animação', 'Faz a faixa se mexer. Redesenha várias vezes por segundo; se o terminal piscar demais, usa a velocidade lenta.',
+    field('Efeito', legend, segCtl('style.anim.mode', ANIMS), null, true),
+    field('Velocidade', 'Lenta 0,5s, normal 0,25s, rápida 0,12s por quadro.', segCtl('style.anim.speed', [['slow', 'Lenta'], ['normal', 'Normal'], ['fast', 'Rápida']]), c => c.style.anim.mode !== 'none' || c.style.look === 'ticker' || c.style.anim.activity || c.spinner.on),
+    field('Indicador de atividade', 'Um símbolo no começo da faixa que gira enquanto o Claude trabalha. Use o botão "Claude trabalhando" no preview.', switchCtl('style.anim.activity')),
+    field('Estilo do indicador', '', segCtl('style.anim.activityStyle', [['braille', 'Braille'], ['dots', 'Pontos'], ['bars', 'Barras'], ['arrows', 'Setas'], ['moon', 'Lua']]), c => c.style.anim.activity),
+    field('Gradiente nas barras', 'A barra vai de cor normal a amarelo e vermelho conforme enche, tipo um termômetro.', switchCtl('style.barGradient')))
+
+  const pals = el('div', { class: 'pals' })
+  const palPaint = () => [...pals.children].forEach(b => b.classList.toggle('on', b.dataset.v === cfg.style.palette))
+  Object.entries(PALETTES).forEach(([k, p]) => pals.append(el('button', { class: 'pal', 'data-v': k, onclick: () => { cfg.style.palette = k; palPaint(); renderItems(); changed() } }, el('span', { text: p.name }), el('div', {}, ['green', 'purple', 'red', 'teal', 'amber'].map(c => el('i', { style: { background: p.c[c] } }))))))
+  ctlPaint.push(palPaint); palPaint()
+  card('Cores', 'Cada item usa uma cor da paleta. Pra mudar só um item, usa a bolinha de cor na aba Itens.',
+    el('div', { class: 'field' }, pals),
+    field('Fundo base da pílula', 'A cor escura que a cor do item mistura. Se seu terminal for claro, escolhe um tom claro.', colorCtl('style.pillBase'), c => c.style.look === 'pills'),
+    field('Intensidade do fundo', 'Quanto da cor do item tinge a pílula.', rangeCtl('style.pillTint', 0.05, 0.6, 0.01, v => Math.round(v * 100) + '%'), c => c.style.look === 'pills'))
+
+  const bars = el('div', { class: 'bars' })
+  const barPaint = () => [...bars.children].forEach(b => b.classList.toggle('on', b.dataset.v === cfg.style.barStyle))
+  Object.entries(BARS).forEach(([k, [on, off, name]]) => bars.append(el('button', { class: 'barpick', 'data-v': k, onclick: () => { cfg.style.barStyle = k; barPaint(); changed() } }, on.repeat(5) + off.repeat(3), el('small', { text: name }))))
+  ctlPaint.push(barPaint); barPaint()
+  card('Barras', 'Valem pros itens de limite (5h, 7d, gasto) e pro contexto.',
+    el('div', { class: 'field' }, bars),
+    field('Largura da barra', 'Em caracteres.', rangeCtl('style.barWidth', 3, 20, 1)),
+    field('Mostrar barras', 'Desliga pra ficar só com o percentual.', switchCtl('style.showBars')),
+    field('Mostrar o reset (⟳)', 'O tempo ou horário em que a janela de limite zera.', switchCtl('style.showReset')),
+    field('Formato do reset', 'Tempo que falta (2h 40m) ou horário (17:40).', segCtl('style.resetFormat', [['remaining', 'Tempo restante'], ['clock', 'Horário']]), c => c.style.showReset),
+    field('Mostrar tokens do contexto', 'No item de contexto, acrescenta 84k/200k ao lado do percentual.', switchCtl('style.ctxDetail')))
+
+  card('Alertas de cor', 'As barras esquentam sozinhas conforme enchem.',
+    field('Ligar alertas', 'Barra e percentual mudam de cor ao passar dos níveis abaixo.', switchCtl('style.heat.on')),
+    field('Aviso a partir de', 'Fica na cor de aviso.', rangeCtl('style.heat.warn', 1, 100, 1, v => v + '%'), c => c.style.heat.on),
+    field('Cor de aviso', '', colorCtl('style.heat.warnColor'), c => c.style.heat.on),
+    field('Crítico a partir de', 'Fica na cor crítica.', rangeCtl('style.heat.crit', 1, 100, 1, v => v + '%'), c => c.style.heat.on),
+    field('Cor crítica', '', colorCtl('style.heat.critColor'), c => c.style.heat.on))
+
+  card('Números e dinheiro', 'Como valores aparecem.',
+    field('Formato dos números', 'Compacto (15.6k) ou completo (15.600).', segCtl('style.numbers', [['compact', 'Compacto'], ['full', 'Completo']])),
+    field('Tokens contam…', 'A sessão inteira ou só o último turno (o peso de uma mensagem).', segCtl('style.tokenScope', [['session', 'Sessão toda'], ['lastTurn', 'Último turno']])),
+    field('Moeda', 'O custo vem em dólar. Em reais ele é multiplicado pela cotação abaixo.', segCtl('style.currency.code', [['USD', 'Dólar ($)'], ['BRL', 'Real (R$)']])),
+    field('Cotação do dólar', 'Quantos reais vale 1 dólar. Atualiza na mão.', rangeCtl('style.currency.rate', 3, 9, 0.05, v => 'R$ ' + v.toFixed(2)), c => c.style.currency.code === 'BRL'))
+
+  const tzAuto = el('button', { class: 'btn small', text: 'Automático', onclick: () => { cfg.style.tzOffset = null; tzInp.value = ''; changed() } })
+  const tzBr = el('button', { class: 'btn small', text: 'Brasília (−3)', onclick: () => { cfg.style.tzOffset = -3; tzInp.value = -3; changed() } })
+  const tzInp = el('input', { type: 'number', min: -12, max: 14, step: 1, placeholder: 'auto', style: { width: '80px' } })
+  tzInp.addEventListener('input', () => { cfg.style.tzOffset = tzInp.value === '' ? null : Number(tzInp.value); changed() })
+  ctlPaint.push(() => { tzInp.value = cfg.style.tzOffset === null ? '' : cfg.style.tzOffset })
+  card('Hora', 'Vale pro relógio e pro reset em formato de horário.',
+    field('Formato', '24h ou 12h (am/pm).', segCtl('style.clock24', [[true, '24h'], [false, '12h']])),
+    field('Fuso horário', 'Deixa automático. Se a hora vier errada dentro do Claude, força o fuso aqui.', el('span', { style: { display: 'flex', gap: '6px', alignItems: 'center' } }, tzInp, tzBr, tzAuto)))
+
+  card('Comportamento', 'Quando a faixa aparece.',
+    field('Tudo ligado', 'Desliga a faixa, o spinner, o fim de turno e a dica de uma vez, sem perder a configuração. O Claude volta ao normal.', switchCtl('enabled')),
+    field('Esconder a faixa enquanto o Claude trabalha', 'A faixa some durante a resposta e volta quando termina. Deixa a tela mais limpa.', switchCtl('style.hideWhileWorking')))
+
+  updateConditional()
+}
+
+/* ====================================================================
+   Aba: Extras (spinner, fim de turno, dica, alertas) + mapa
+   ==================================================================== */
+function renderExtras() {
+  const box = $('#extraCards'); box.replaceChildren()
+  const card = (title, badge, desc, ...fields) => box.append(el('div', { class: 'card' + (title.startsWith('Mapa') ? ' wide' : '') }, el('h3', {}, title, badge && el('span', { class: 'badge ok', text: badge })), el('p', { text: desc }), fields))
+
+  const map = el('div', { class: 'map' }, MAP.map(g => el('div', { class: 'col' }, el('h4', {}, el('span', { class: 'badge ' + g.cls, text: g.cls === 'ok' ? 'aqui' : g.cls === 'mod' ? 'mods' : 'Claude Code' }), g.title), el('ul', {}, g.items.map(([a, b]) => el('li', {}, el('b', { text: a }), ' — ' + b))))))
+  box.append(el('div', { class: 'card wide' }, el('h3', { text: 'Mapa: o que dá pra personalizar no Claude' }), el('p', { text: 'A faixa foi só o começo. Os cartões abaixo já funcionam e se aplicam no Claude ao salvar. O resto da lista dá pra fazer com o mesmo sistema de mods, é só pedir.' }), map))
+
+  const chips = el('div', { class: 'chips' })
+  let hintArea
+  ;[['{5h}', 'limite de 5h'], ['{7d}', 'limite de 7d'], ['{cost}', 'custo'], ['{ctx}', 'contexto'], ['{model}', 'modelo'], ['{time}', 'hora'], ['{turns}', 'mensagens'], ['{dir}', 'pasta']].forEach(([v, t]) =>
+    chips.append(el('button', { text: v, title: t, onclick: () => { const a = hintArea; const s = a.selectionStart || a.value.length; a.value = a.value.slice(0, s) + v + a.value.slice(s); a.dispatchEvent(new Event('input')); a.focus() } })))
+
+  card('Spinner', 'ao vivo', 'A linha que anima enquanto o Claude trabalha. Troca as palavras por frases suas, faz elas rodarem e liga o arco-íris. Marque "Claude trabalhando" no preview pra ver.',
+    field('Personalizar o spinner', '', switchCtl('spinner.on')),
+    field('Palavras (uma por linha)', 'Uma é escolhida a cada mensagem sua. Até 30 linhas.', listCtl('spinner.words', 30, 40, 6), c => c.spinner.on, true),
+    field('Trocar a palavra a cada', '0 = fica a mesma até o fim da resposta.', rangeCtl('spinner.cycleSec', 0, 15, 1, v => (v === 0 ? 'não' : v + 's')), c => c.spinner.on),
+    field('Letras em arco-íris', 'Cada letra com uma cor girando.', switchCtl('spinner.rainbow'), c => c.spinner.on),
+    field('Mostrar o tempo', 'O "(12s)" depois da palavra. Só quando o spinner é animado.', switchCtl('spinner.showTime'), c => c.spinner.on && (c.spinner.rainbow || c.spinner.cycleSec > 0)),
+    field('Mostrar o que ele tá fazendo', '"pensando", "escrevendo", "rodando ferramenta". Só quando o spinner é animado.', switchCtl('spinner.showMode'), c => c.spinner.on && (c.spinner.rainbow || c.spinner.cycleSec > 0)))
+
+  card('Fim de turno', 'ao vivo', 'A linha que fecha cada resposta ("Baked for 3s"). Vira "Cozinhou em 3s" com a palavra que você quiser.',
+    field('Personalizar', '', switchCtl('turnDone.on')),
+    field('Palavras (uma por linha)', 'Passado, tipo "Cozinhou", "Resolveu".', listCtl('turnDone.words', 30, 40, 5), c => c.turnDone.on, true))
+
+  hintArea = listCtl('hint.items', 20, 80, 5)
+  card('Dica embaixo do prompt', 'ao vivo', 'Uma frase discreta embaixo da caixa de digitar, com seus dados. Troca a cada mensagem. Só aparece quando você não está digitando.',
+    field('Mostrar', '', switchCtl('hint.on')),
+    field('Frases (uma por linha)', 'Clica numa variável pra inserir onde o cursor está.', hintArea, c => c.hint.on, true),
+    field('Variáveis', 'Viram o valor de verdade na hora.', chips, c => c.hint.on, true))
+
+  card('Alertas', 'ao vivo', 'Aviso rápido na tela quando algo passa de um nível. Cada nível avisa uma vez.',
+    field('Ligar alertas', '', switchCtl('alerts.on')),
+    field('Níveis (%)', 'Vale pra 5h, 7d e contexto. Separa com vírgula.', levelsCtl('alerts.levels'), c => c.alerts.on),
+    field('Avisar custo acima de (US$)', '0 = não avisa. É em dólar, que é como o Claude conta.', numCtl('alerts.costUsd', 0, 100000, 1), c => c.alerts.on),
+    field('Avisar turno longo (segundos)', '0 = não avisa. Útil pra saber que um turno demorou.', rangeCtl('alerts.longTurnSec', 0, 600, 10, v => (v === 0 ? 'não' : v + 's')), c => c.alerts.on))
+
+  updateConditional()
+}
+
+/* ====================================================================
+   Aba: Presets
+   ==================================================================== */
+function presetToCfg(p) {
+  const base = clone(DEFAULTS)
+  const style = { ...base.style, ...p.style, heat: { ...base.style.heat, ...(p.style.heat || {}) }, currency: { ...base.style.currency, ...(p.style.currency || {}) }, anim: { ...base.style.anim, ...(p.style.anim || {}) } }
+  const widgets = ALL.map(id => ({ id, on: p.ids.includes(id) })).sort((a, b) => (p.ids.indexOf(a.id) + 1 || 999) - (p.ids.indexOf(b.id) + 1 || 999))
+  return normalize({ version: 1, enabled: true, widgets, style, spinner: { ...base.spinner, ...(p.spinner || {}) }, turnDone: { ...base.turnDone, ...(p.turnDone || {}) }, hint: { ...base.hint, ...(p.hint || {}) }, alerts: { ...base.alerts, ...(p.alerts || {}) } })
+}
+function presetTags(c) {
+  const t = [], a = c.style.anim
+  if (a.mode !== 'none' || c.style.look === 'ticker') t.push(['ao vivo', true])
+  if (c.spinner.on) t.push(['spinner', false]); if (c.turnDone.on) t.push(['fim de turno', false]); if (c.hint.on) t.push(['dica', false]); if (c.alerts.on) t.push(['alertas', false])
+  return t
+}
+function applyPreset(p) { cfg = presetToCfg(p); renderAll(); changed(); toast('Preset aplicado: ' + p.name) }
+function renderPresets() {
+  const box = $('#presetList'); box.replaceChildren(); liveDemos.length = 0
+  PRESETS.forEach(p => {
+    const demoCfg = presetToCfg(p)
+    const demo = el('div', { class: 'band' }), wrap = el('div', { class: 'demo' }, demo)
+    renderBand(demoCfg, sampleData(), demo, frame, !demoCfg.style.hideWhileWorking)
+    if (demoCfg.style.anim.mode !== 'none' || demoCfg.style.look === 'ticker') liveDemos.push({ cfg: demoCfg, node: demo })
+    box.append(el('div', { class: 'preset' }, el('h3', { text: p.name }), el('p', { text: p.desc }), wrap,
+      el('div', { class: 'tagrow' }, presetTags(demoCfg).map(([t, live]) => el('span', { class: 'tg' + (live ? ' live' : ''), text: t }))),
+      el('div', {}, el('button', { class: 'btn primary small', text: 'Usar este', onclick: () => applyPreset(p) }))))
+  })
+  syncDemoTimer()
+}
+/* os demos animados precisam de um relógio mesmo com a animação do preview principal desligada */
+let demoTimer = null
+function syncDemoTimer() {
+  clearInterval(demoTimer); demoTimer = null
+  if (DEMO) return
+  if (liveDemos.length && !tickTimer) demoTimer = setInterval(() => { if (!tickTimer && $('#tab-presets').classList.contains('on')) { frame++; drawDemos() } }, 250)
+}
+
+/* ====================================================================
+   Aba: Glossário
+   ==================================================================== */
+function renderGloss() {
+  const q = ($('#glSearch').value || '').toLowerCase().trim()
+  const box = $('#gloss'); box.replaceChildren()
+  const match = s => !q || s.toLowerCase().includes(q)
+  GROUPS.forEach(g => {
+    const list = WIDGETS.filter(w => w.group === g && match([w.name, w.short, w.what, w.source, w.tip, w.id].join(' ')))
+    if (!list.length) return
+    box.append(el('h2', { text: g }))
+    list.forEach(w => box.append(el('div', { class: 'entry', id: 'g-' + w.id },
+      el('h3', {}, w.name, el('span', { class: 'badge g-' + w.group, text: w.group })),
+      el('div', { class: 'ex', text: w.example }),
+      el('dl', {}, el('dt', { text: 'O que é' }), el('dd', { text: w.what }), el('dt', { text: 'De onde vem' }), el('dd', { text: w.source }), el('dt', { text: 'Dica' }), el('dd', { text: w.tip })))))
+  })
+  const cs = CONCEPTS.filter(c => match(c.name + ' ' + c.body))
+  if (cs.length) { box.append(el('h2', { text: 'Conceitos pra entender a barra e os extras' })); cs.forEach(c => box.append(el('div', { class: 'entry' }, el('h3', { text: c.name }), el('div', { text: c.body })))) }
+  if (!box.children.length) box.append(el('div', { class: 'note', text: 'Nada encontrado. Tenta outra palavra.' }))
+}
+function gotoGloss(id) {
+  openTab('gloss'); $('#glSearch').value = ''; renderGloss()
+  const t = document.getElementById('g-' + id)
+  if (t) { t.scrollIntoView({ behavior: 'smooth', block: 'start' }); t.classList.remove('flash'); void t.offsetWidth; t.classList.add('flash') }
+}
+
+/* ====================================================================
+   Simulador, abas, JSON, boot
+   ==================================================================== */
+function renderSim() {
+  const box = $('#sim'); box.replaceChildren(el('span', { class: 'tag', text: 'simular' }))
+  const sl = (label, key, min, max, step, fmt) => {
+    const out = el('b', { text: fmt(sample[key]) }), inp = el('input', { type: 'range', min, max, step, value: sample[key] })
+    inp.addEventListener('input', () => { sample[key] = Number(inp.value); out.textContent = fmt(sample[key]); applyCols(); drawPreview() })
+    box.append(el('label', {}, label, inp, out))
+  }
+  sl('5h', 'five', 0, 100, 1, v => v + '%'); sl('7d', 'seven', 0, 100, 1, v => v + '%'); sl('contexto', 'ctx', 0, 100, 1, v => v + '%'); sl('custo', 'cost', 0, 100, 0.5, v => '$' + v.toFixed(1))
+  sl('largura', 'cols', 40, 140, 1, v => v + ' col')
+  const cb = el('input', { type: 'checkbox' }); cb.addEventListener('change', () => { sample.spend = cb.checked; drawPreview() })
+  const cw = el('input', { type: 'checkbox' }); cw.addEventListener('change', () => { working = cw.checked; workStart = Date.now(); tickMs = -1; syncTimer(); drawPreview() })
+  box.append(el('label', {}, cb, 'tem limite de gasto'), el('label', {}, cw, 'Claude trabalhando'))
+}
+const applyCols = () => { $('#screen').style.width = sample.cols + 'ch' }
+
+function openTab(name) {
+  document.querySelectorAll('#tabs button').forEach(b => b.classList.toggle('on', b.dataset.tab === name))
+  document.querySelectorAll('.tab').forEach(t => t.classList.toggle('on', t.id === 'tab-' + name))
+  if (name === 'presets') { drawDemos() }
+}
+function renderAll() { renderFilters(); renderItems(); renderStyle(); renderExtras(); renderPresets(); renderGloss(); $('#json').value = JSON.stringify(cfg, null, 2); tickMs = -1; syncTimer(); drawPreview() }
+
+async function boot() {
+  $('#tabs').addEventListener('click', e => { const b = e.target.closest('button'); if (b) openTab(b.dataset.tab) })
+  $('#glSearch').addEventListener('input', renderGloss)
+  $('#saveBtn').addEventListener('click', async () => { await save(); toast(serverOk ? 'Salvo!' : 'Servidor offline') })
+  $('#autosave').addEventListener('change', () => { if ($('#autosave').checked && dirty && serverOk) save() })
+  $('#resetAll').addEventListener('click', () => { if (confirm('Voltar tudo pro padrão?')) { cfg = clone(DEFAULTS); renderAll(); changed(); toast('Padrão restaurado') } })
+  const applyJson = text => { try { cfg = normalize(JSON.parse(text)); renderAll(); changed(); $('#jsonMsg').textContent = 'Aplicado.'; return true } catch (e) { $('#jsonMsg').textContent = 'JSON inválido: ' + e.message; return false } }
+  $('#jsonApply').addEventListener('click', () => applyJson($('#json').value))
+  $('#jsonCopy').addEventListener('click', async () => { try { await navigator.clipboard.writeText($('#json').value); toast('Copiado') } catch { $('#json').select(); toast('Selecionado: Ctrl+C') } })
+  $('#jsonDownload').addEventListener('click', () => { const a = el('a', { href: URL.createObjectURL(new Blob([$('#json').value], { type: 'application/json' })), download: 'usage-band.json' }); a.click() })
+  $('#jsonFile').addEventListener('change', async e => { const f = e.target.files[0]; if (f) applyJson(await f.text()); e.target.value = '' })
+
+  renderSim(); applyCols()
+  if (DEMO) {
+    serverOk = true
+  } else {
+    try {
+      const r = await fetch('/api/config'); const d = await r.json()
+      serverOk = true; cfgPath = d.path || cfgPath; $('#cfgPath').textContent = cfgPath
+      if (d.config) cfg = normalize(d.config)
+    } catch { serverOk = false }
+  }
+  renderAll(); dirty = false; setStatus()
+  if (DEMO) setupDemo()
+}
+
+/* API usada pelos scripts de captura: tudo determinístico, nada depende de relógio */
+function setupDemo() {
+  const byName = n => PRESETS.find(p => p.name === n)
+  window.__demo = {
+    sample,
+    presets: PRESETS.map(p => p.name),
+    preset(name) { const p = byName(name); if (p) { cfg = presetToCfg(p); renderAll(); this.set({}) } },
+    tab(name) { openTab(name); this.set({}) },
+    set({ frame: f, working: w, elapsedMs }) {
+      if (f !== undefined) frame = f
+      if (w !== undefined) working = w
+      if (elapsedMs !== undefined) demoElapsed = elapsedMs
+      const cb = [...document.querySelectorAll('#sim input[type=checkbox]')].pop(); if (cb) cb.checked = working
+      drawPreview(); drawDemos()
+    }
+  }
+  if (QS.get('preset')) window.__demo.preset(QS.get('preset'))
+  if (QS.get('tab')) window.__demo.tab(QS.get('tab'))
+  window.__demo.set({ frame: Number(QS.get('frame') || 0), working: QS.get('working') === '1', elapsedMs: Number(QS.get('elapsed') || 0) })
+  document.body.classList.add('demo')
+  window.__ready = true
+}
+boot()
+</script>
+</body>
+</html>
